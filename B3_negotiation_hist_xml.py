@@ -159,20 +159,22 @@ def unzip_file(zip_path: str, extract_to: str = None, remove_zip: bool = True):
         return None
 
 
-def merge_all_deals(root_path: str, ticker_regex:str = ''):
-    all_files = [os.path.join(root_path, filename) for filename in os.listdir(root_path) if filename.endswith('.csv')]
+def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
+    all_files = [os.path.join(root_path, filename) for filename in os.listdir(root_path) if filename.endswith('.csv') and 'Negociações' in filename]
     df_list = []
     for file in all_files:
         try:
             df = pd.read_csv(file, sep=',', encoding='latin1', decimal='.')
             filtered_df = df[df['Ticker'].str.contains(ticker_regex, regex=True)] if ticker_regex else df
+            filtered_df = filtered_df[filtered_df['TradeQty'] > 0]
             df_list.append(filtered_df)
         except Exception as e:
             print(f"Error reading {file}: {e}")
     
     if df_list:
         merged_df = pd.concat(df_list, ignore_index=True)
-        merged_df.to_csv(os.path.join(root_path, 'merged_deals.csv'), index=False)
+        merged_df.sort_values(by=['TradeDate'], inplace=True)
+        merged_df.to_csv(output_path, index=False)
         return
     else:
         print("No CSV files found or all files failed to read.")
@@ -181,7 +183,7 @@ def merge_all_deals(root_path: str, ticker_regex:str = ''):
 
 interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
 date_ini = '2024-01-01'
-date_end = '2025-01-01'
+date_end = '2024-01-01'
 output = 'Histórico B3'
 
 codes = list(filter(lambda code: not  os.path.exists(f'{output}/{code.replace('PR', 'Negociações 20')}.csv'), gen_date_list_code(date_ini, date_end)))
@@ -207,4 +209,5 @@ for code in codes:
     #     if file.endswith('.xml'):
     #         print(parse_xml_to_df(file))
 
-# merge_all_deals(output, '|'.join(interested_tickers))
+output_path = 'interested_merged_deals.csv'
+merge_all_deals(output, output_path, '|'.join(interested_tickers))
