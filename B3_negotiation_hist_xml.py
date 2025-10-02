@@ -167,6 +167,8 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
     for file in all_files:
         try:
             df = pd.read_csv(file, sep=',', encoding='latin1', decimal='.')
+            if df.empty:
+                continue
             filtered_df = df[df['Ticker'].str.contains(ticker_regex, regex=True)] if ticker_regex else df
             filtered_df = filtered_df[filtered_df['TradeQty'] > 0]
             df_list.append(filtered_df)
@@ -184,8 +186,8 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
 
 
 interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
-date_ini = '2025-10-01'
-date_end = '2025-01-01'
+date_ini = '2025-01-01'
+date_end = '2025-10-01'
 output = 'Histórico B3'
 
 codes = list(filter(lambda code: not  os.path.exists(f'{output}/{code.replace('PR', 'Negociações 20')}.csv'), gen_date_list_code(date_ini, date_end)))
