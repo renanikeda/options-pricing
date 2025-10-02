@@ -40,7 +40,9 @@ def parse_xml(xml_path: str):
         return None
 
 def parse_xml_to_df(xml_path: str):
+    
     root = parse_xml(xml_path)
+    if root is None: return pd.DataFrame()  # Return empty DataFrame on parse error
     ns = {
         "bvmf052": "urn:bvmf.052.01.xsd",
         "head": "urn:iso:std:iso:20022:tech:xsd:head.001.001.01",
@@ -182,8 +184,8 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
 
 
 interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
-date_ini = '2024-01-01'
-date_end = '2024-01-01'
+date_ini = '2025-10-01'
+date_end = '2025-01-01'
 output = 'Histórico B3'
 
 codes = list(filter(lambda code: not  os.path.exists(f'{output}/{code.replace('PR', 'Negociações 20')}.csv'), gen_date_list_code(date_ini, date_end)))
@@ -203,11 +205,6 @@ for code in codes:
         output_file = f"{output}/Negociações {date}.csv"
         df.to_csv(output_file, index=False)
     shutil.rmtree('/'.join(file.split('/')[:-1]))
-
-    # print("Extracted files:", extracted_files)
-    # for file in extracted_files:
-    #     if file.endswith('.xml'):
-    #         print(parse_xml_to_df(file))
 
 output_path = 'interested_merged_deals.csv'
 merge_all_deals(output, output_path, '|'.join(interested_tickers))
