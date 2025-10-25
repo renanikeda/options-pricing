@@ -74,7 +74,9 @@ def test_geometric_brownian_motion():
     plt.ylabel('Value')
     plt.show()
 
-
+if __name__ == "__main__":
+    test_brownian_motion()
+    test_geometric_brownian_motion()
 
 
 
