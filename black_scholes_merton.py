@@ -1,4 +1,3 @@
-from brownian_motion import geometric_brownian_motion
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.stats import norm
@@ -8,7 +7,7 @@ class OptionType(Enum):
     CALL = "call"
     PUT = "put"
 
-def black_scholes_merton(S, K, T, r, sigma, option_type=OptionType.CALL):
+def black_scholes_merton(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL):
     """
     Calculates the Black-Scholes-Merton option price.
 
@@ -36,15 +35,16 @@ def black_scholes_merton(S, K, T, r, sigma, option_type=OptionType.CALL):
 
     return price
 
-dt=0.01
-T=5
-M=10
-r = 0.07
-sigma=0.2
-t, GBM = geometric_brownian_motion(r=r, sigma=sigma, M=M, T=T, dt=dt)
-plt.plot(t, GBM)
-plt.title(f'Geometric Brownian Motion - {M} Paths')
-plt.xlabel('Time')
-plt.ylabel('Stock Price')
-plt.grid()
-plt.show()
+S0 = 10
+sigma = 0.2
+r = 0.5
+T = 1
+K = 15
+
+BSM_call = black_scholes_merton(S0, K, T, r, sigma, OptionType.CALL)
+BSM_put = black_scholes_merton(S0, K, T, r, sigma, OptionType.PUT)
+
+print(f'BSM Call Option Price: {BSM_call:.2f}')
+print(f'BSM Put Option Price: {BSM_put:.2f}')
+
+
