@@ -20,7 +20,7 @@ def poisson_process(lambd, T, dt):
     jumps = np.random.poisson(lambd * dt, N)
     return np.cumsum(jumps)
 
-def generate_jump_sizes(p, eta1, eta2, num_jumps):
+def generate_jump_sizes(p, eta1, eta2, num_jumps, M=5):
     """
     Generate jump sizes from the double exponential distribution.
     
@@ -34,11 +34,11 @@ def generate_jump_sizes(p, eta1, eta2, num_jumps):
     np.array: array of jump sizes
     """
     if num_jumps == 0:
-        return np.array([])
+        return np.array([[]])
     
     # Generate random numbers to determine jump direction
-    directions = np.random.random(num_jumps)
-    jump_sizes = np.zeros(num_jumps)
+    directions = np.random.random((num_jumps, M))
+    jump_sizes = np.zeros((num_jumps, M))
     
     # Positive jumps
     positive_mask = directions < p
@@ -54,7 +54,7 @@ def generate_jump_sizes(p, eta1, eta2, num_jumps):
     
     return jump_sizes
 
-def jumps_pdf(y, p, eta1, eta2):
+def jumps_pdf(T, dt, p, eta1, eta2):
     """
     Calculate the PDF of jump sizes for the double exponential distribution.
     
@@ -67,7 +67,9 @@ def jumps_pdf(y, p, eta1, eta2):
     Returns:
     float or np.array: PDF values
     """
-    y = np.asarray(y)
+
+    y = np.linspace(-math.floor(T/2), math.floor(T/2), math.floor(1/dt))
+    # y = np.asarray(y)
     fdp = np.zeros_like(y, dtype=float)
     
     # Positive part (y >= 0)
@@ -78,9 +80,9 @@ def jumps_pdf(y, p, eta1, eta2):
     negative_mask = y < 0
     fdp[negative_mask] = (1-p) * eta2 * np.exp(eta2 * y[negative_mask])
     
-    return fdp
+    return y, fdp
 
-def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd):
+def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     """
     Generate a single path of the Kou jump diffusion process.
     
@@ -102,37 +104,47 @@ def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd):
     t = np.linspace(0, T, N + 1)
     
     # Generate Brownian motion
-    t, W = brownian_motion(T, dt, M=1)
-    W = W.flatten()
+    t, W = brownian_motion(T, dt, M)
+    time_matrix = np.repeat(t, M).reshape(N+1,M)
+
+    # W = W.flatten()
     
     # Generate Poisson jumps
-    jump_counts = poisson_process(lambd, T, dt)
+    poisson_jumps = poisson_process(lambd, T, dt)
     
     # Initialize log price process
-    log_S = np.zeros(N + 1)
-    log_S[0] = np.log(S0)
-    
-    # Drift adjustment for jumps
-    csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
-    # dw = np.diff(W, prepend=0)
-    # log_S = np.log(S0) + r*t - 0.5*sigma**t*t + sigma*dw
+    log_S = np.zeros((N + 1, M))
+    log_S[:, 0] = np.log(S0)
+
+    # csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
+    dw = np.diff(W, prepend=0)
+
+    # jumps = jumps_pdf()
+    log_S = np.log(S0) + r*time_matrix - 0.5*sigma**2*time_matrix + sigma*dw
+
     for i in range(N):
-        # Brownian motion component
-        dW = W[i+1] - W[i] if i+1 < len(W) else 0
+        jumps_generated= generate_jump_sizes(p, eta1, eta2, poisson_jumps[i], M)
+        jumps_sum = np.sum(jumps_generated, axis=0)
+        if jumps_sum.size == 0: jumps_sum.resize(M)
+        log_S[i, :] += jumps_sum
+
+    # for i in range(N):
+    #     # Brownian motion component
+    #     dW = W[i+1] - W[i] if i+1 < len(W) else 0
         
-        # Jump component
-        num_jumps = jump_counts[i]
-        total_jump = 0
-        if num_jumps > 0:
-            jump_sizes = generate_jump_sizes(p, eta1, eta2, num_jumps)
-            total_jump = np.sum(jump_sizes)
+    #     # Jump component
+    #     num_jumps = jump_counts[i]
+    #     total_jump = 0
+    #     if num_jumps > 0:
+    #         jump_sizes = generate_jump_sizes(p, eta1, eta2, num_jumps)
+    #         total_jump = np.sum(jump_sizes)
         
-        # Update log price
-        log_S[i+1] = log_S[i] + (r - 0.5 * sigma**2 - lambd * csi) * dt + sigma * dW + total_jump
+    #     # Update log price
+    #     log_S[i+1] = log_S[i] + (r - 0.5 * sigma**2 - lambd * csi) * dt + sigma * dW + total_jump
     
     return t, np.exp(log_S)
 
-def kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
+def kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
     """
     Price European option using Monte Carlo simulation with Kou jump diffusion.
     
@@ -186,8 +198,12 @@ def test_poisson_process():
 
 def test_jump_pdf():
     """Test the jump size PDF visualization."""
-    y = np.linspace(-2, 2, 1000)
-    fdp = jumps_pdf(y, 0.3, 5, 5)
+    T = 5
+    dt = 0.01
+    N = int(T / dt)
+    # t = np.linspace(0, T, N + 1)
+
+    y, fdp = jumps_pdf(T, dt, 0.3, 5, 5)
     
     plt.figure(figsize=(10, 6))
     plt.plot(y, fdp, 'b-', linewidth=2)
@@ -199,9 +215,14 @@ def test_jump_pdf():
     plt.show()
 
 def test_kou_process():
-    t, S = kou_process(S0=100, r=0.05, sigma=0.2, T=1, dt=0.01, eta1=5, eta2=5, p=0.3, lambd=1)
+    S0=100
+    r = 0.1
+    t, S = kou_process(S0=S0, r=r, sigma=0.2, T=2, dt=0.01, eta1=35, eta2=50, p=0.3, lambd=1, M=5)
+    risk_free_rate = np.exp(r * t) * S0
+
     plt.figure(figsize=(10, 6))
     plt.plot(t, S, 'b-', linewidth=2)
+    plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
     plt.xlabel('Time')
     plt.ylabel('Stock Price')
@@ -223,11 +244,11 @@ def test_kou_pricing():
     M = 10000    # Number of simulations
     
     # Price call option
-    call_price = kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.CALL)
+    call_price = kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.CALL)
     print(f"Call option price: {call_price:.4f}")
     
     # Price put option
-    put_price = kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.PUT)
+    put_price = kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.PUT)
     print(f"Put option price: {put_price:.4f}")
     
     # Verify put-call parity (approximately)
@@ -236,5 +257,7 @@ def test_kou_pricing():
     print(f"Put-call parity difference: {parity_diff:.4f}")
 
 if __name__ == "__main__":
+    # test_jump_pdf()
+    # print(generate_jump_sizes(0.3, 5, 5, 10, 5))
     test_kou_process()
     
