@@ -5,7 +5,6 @@ from enum import Enum
 
 from utils import OptionType
 
-
 def black_scholes_merton(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL):
     """
     Calculates the Black-Scholes-Merton option price.
