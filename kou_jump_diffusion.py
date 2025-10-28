@@ -111,37 +111,23 @@ def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     
     # Generate Poisson jumps
     poisson_jumps = poisson_process(lambd, T, dt)
-    
+    n_jumps = poisson_jumps[-1]
     # Initialize log price process
-    log_S = np.zeros((N + 1, M))
+    log_S = np.zeros((N+1, M))
     log_S[:, 0] = np.log(S0)
 
-    # csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
+    csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
     dw = np.diff(W, prepend=0)
 
-    # jumps = jumps_pdf()
     log_S = np.log(S0) + r*time_matrix - 0.5*sigma**2*time_matrix + sigma*dw
+    jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps, M)
 
     for i in range(N):
-        jumps_generated= generate_jump_sizes(p, eta1, eta2, poisson_jumps[i], M)
-        jumps_sum = np.sum(jumps_generated, axis=0)
+        jump_index = poisson_jumps[i]
+        jumps_sum = np.sum(jumps_generated[:jump_index,:], axis=0)
         if jumps_sum.size == 0: jumps_sum.resize(M)
         log_S[i, :] += jumps_sum
 
-    # for i in range(N):
-    #     # Brownian motion component
-    #     dW = W[i+1] - W[i] if i+1 < len(W) else 0
-        
-    #     # Jump component
-    #     num_jumps = jump_counts[i]
-    #     total_jump = 0
-    #     if num_jumps > 0:
-    #         jump_sizes = generate_jump_sizes(p, eta1, eta2, num_jumps)
-    #         total_jump = np.sum(jump_sizes)
-        
-    #     # Update log price
-    #     log_S[i+1] = log_S[i] + (r - 0.5 * sigma**2 - lambd * csi) * dt + sigma * dW + total_jump
-    
     return t, np.exp(log_S)
 
 def kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
@@ -216,12 +202,13 @@ def test_jump_pdf():
 
 def test_kou_process():
     S0=100
-    r = 0.1
-    t, S = kou_process(S0=S0, r=r, sigma=0.2, T=2, dt=0.01, eta1=35, eta2=50, p=0.3, lambd=1, M=5)
+    r = 0
+    t, S = kou_process(S0=S0, r=r, sigma=0.16, T=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=1)
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
-    plt.plot(t, S, 'b-', linewidth=2)
+    plt.plot(t, S, 'b.', markersize=2)
+    # plt.plot(t, S, 'r-', linewidth=0.5)
     plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
     plt.xlabel('Time')
