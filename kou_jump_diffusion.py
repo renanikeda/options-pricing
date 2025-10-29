@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
-def poisson_process(lambd, T, dt):
+def poisson_process(lambd, T, dt, M=1):
     """
     Poisson process.
     
@@ -17,10 +17,10 @@ def poisson_process(lambd, T, dt):
     np.array: array of jump counts
     """
     N = int(T / dt)
-    jumps = np.random.poisson(lambd * dt, N)
-    return np.cumsum(jumps)
+    jumps = np.random.poisson(lambd * dt, (M,N))
+    return np.cumsum(jumps, axis=1)
 
-def generate_jump_sizes(p, eta1, eta2, num_jumps, M=5):
+def generate_jump_sizes(p, eta1, eta2, num_jumps):
     """
     Generate jump sizes from the double exponential distribution.
     
@@ -37,8 +37,8 @@ def generate_jump_sizes(p, eta1, eta2, num_jumps, M=5):
         return np.array([[]])
     
     # Generate random numbers to determine jump direction
-    directions = np.random.random((num_jumps, M))
-    jump_sizes = np.zeros((num_jumps, M))
+    directions = np.random.random(num_jumps)
+    jump_sizes = np.zeros(num_jumps)
     
     # Positive jumps
     positive_mask = directions < p
@@ -110,8 +110,11 @@ def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     # W = W.flatten()
     
     # Generate Poisson jumps
-    poisson_jumps = poisson_process(lambd, T, dt)
-    n_jumps = poisson_jumps[-1]
+    poisson_jumps = poisson_process(lambd, T, dt, M)
+    for i in range(poisson_jumps.shape[0]):
+        print(poisson_jumps[i])
+
+    # n_jumps = poisson_jumps[-1]
     # Initialize log price process
     log_S = np.zeros((N+1, M))
     log_S[:, 0] = np.log(S0)
@@ -120,17 +123,20 @@ def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     dw = np.diff(W, prepend=0)
 
     log_S = np.log(S0) + r*time_matrix - 0.5*sigma**2*time_matrix + sigma*dw
-    jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps, M)
 
-    for i in range(N):
-        jump_index = poisson_jumps[i]
-        jumps_sum = np.sum(jumps_generated[:jump_index,:], axis=0)
-        if jumps_sum.size == 0: jumps_sum.resize(M)
-        log_S[i, :] += jumps_sum
+    for path_index in range(M):
+        n_jumps = poisson_jumps[path_index,-1]
+        jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps)
+        print(jumps_generated)
+        for i in range(N):
+            jump_index = poisson_jumps[path_index, i]
+            jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
+            if jumps_sum.size == 0: jumps_sum.resize(M)
+            log_S[i, path_index] += jumps_sum
 
     return t, np.exp(log_S)
 
-def kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
+def kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
     """
     Price European option using Monte Carlo simulation with Kou jump diffusion.
     
@@ -170,6 +176,36 @@ def kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type=Op
     option_price = np.exp(-r * T) * np.mean(payoffs)
     return option_price
 
+def zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd, M):
+    N = int(T / dt)
+    t = np.linspace(0, T, N + 1)
+    
+    # Generate Brownian motion
+    t, W = brownian_motion(T, dt, M)
+    time_matrix = np.repeat(t, M).reshape(N+1,M)
+    poisson_jumps = poisson_process(lambd, T, dt)
+    n_jumps = poisson_jumps[-1]
+
+    zeta = np.zeros((N+1, M))
+    zeta = r*time_matrix + sigma*W
+
+    jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
+
+    for i in range(N):
+        jump_index = poisson_jumps[i]
+        jumps_sum = np.sum(jumps_generated[:jump_index,:], axis=0)
+        if jumps_sum.size == 0: jumps_sum.resize(M)
+        zeta[i, :] += jumps_sum
+    
+    return zeta
+
+def kou_option_price(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
+    N = int(T / dt)
+    t = np.linspace(0, T, N + 1)
+    
+    zeta = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd, M)
+
+
 def test_poisson_process():
     lambd = 1
     T = 5
@@ -207,7 +243,11 @@ def test_kou_process():
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
-    plt.plot(t, S, 'b.', markersize=2)
+    colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
+    
+    for i in range(S.shape[1]):
+        plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
+    # plt.plot(t, S, 'b.', markersize=2)
     # plt.plot(t, S, 'r-', linewidth=0.5)
     plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
