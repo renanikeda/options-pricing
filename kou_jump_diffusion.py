@@ -111,8 +111,6 @@ def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     
     # Generate Poisson jumps
     poisson_jumps = poisson_process(lambd, T, dt, M)
-    for i in range(poisson_jumps.shape[0]):
-        print(poisson_jumps[i])
 
     # n_jumps = poisson_jumps[-1]
     # Initialize log price process
@@ -127,7 +125,7 @@ def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     for path_index in range(M):
         n_jumps = poisson_jumps[path_index,-1]
         jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps)
-        print(jumps_generated)
+        if jumps_generated.size == 0: continue
         for i in range(N):
             jump_index = poisson_jumps[path_index, i]
             jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
@@ -159,51 +157,50 @@ def kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type
     dt = 0.01  # Fixed time step
     payoffs = np.zeros(M)
     
-    for i in range(M):
-        # Generate stock price path
-        _, S_path = kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd)
-        S_T = S_path[-1]  # Final stock price
-        
-        # Calculate payoff
-        if option_type == OptionType.CALL:
-            payoffs[i] = max(S_T - K, 0)
-        elif option_type == OptionType.PUT:
-            payoffs[i] = max(K - S_T, 0)
-        else:
-            raise ValueError("option_type must be OptionType.CALL or OptionType.PUT")
+    # Generate stock price path
+    _, S_path = kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M)
+    S_T = S_path[-1, :]  # Final stock price
+    
+    # Calculate payoff
+    if option_type == OptionType.CALL:
+        payoffs = np.max(S_T - K, 0)
+    elif option_type == OptionType.PUT:
+        payoffs = np.max(K - S_T, 0)
+    else:
+        raise ValueError("option_type must be OptionType.CALL or OptionType.PUT")
     
     # Discount expected payoff
     option_price = np.exp(-r * T) * np.mean(payoffs)
     return option_price
 
-def zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd, M):
+def zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd):
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
     
     # Generate Brownian motion
-    t, W = brownian_motion(T, dt, M)
-    time_matrix = np.repeat(t, M).reshape(N+1,M)
-    poisson_jumps = poisson_process(lambd, T, dt)
-    n_jumps = poisson_jumps[-1]
+    t, W = brownian_motion(T, dt, M=1)
+    W = W.flatten()
 
-    zeta = np.zeros((N+1, M))
-    zeta = r*time_matrix + sigma*W
+    poisson_jumps = poisson_process(lambd, T, dt, M=1).flatten()
+    n_jumps = poisson_jumps[-1] if poisson_jumps.size > 0 else 0
 
-    jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
+    zeta = np.zeros(N+1)
+    zeta = r*t + sigma*W
 
+    jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps)
+    if jumps_generated.size == 0: return t, zeta
     for i in range(N):
         jump_index = poisson_jumps[i]
-        jumps_sum = np.sum(jumps_generated[:jump_index,:], axis=0)
-        if jumps_sum.size == 0: jumps_sum.resize(M)
-        zeta[i, :] += jumps_sum
+        jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
+        zeta[i] += jumps_sum
     
-    return zeta
+    return t, zeta
 
-def kou_option_price(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
+def kou_option_price(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd,  option_type=OptionType.CALL):
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
     
-    zeta = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd, M)
+    zeta = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd)
 
 
 def test_poisson_process():
@@ -257,6 +254,26 @@ def test_kou_process():
     plt.show()
 
 def test_kou_pricing():
+    S0=100
+    r=0.1
+    T = 1.0
+    dt=0.01
+    sigma = 0.2
+    eta1=20
+    eta2=20
+    p=0.25
+    lambd=3
+    t, S = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(t, S, 'r-', linewidth=0.5)
+    plt.title('Kou Jump Diffusion Process')
+    plt.xlabel('Time')
+    plt.ylabel('Stock Price')
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
+def test_kou_pricing_mc():
     """Test option pricing with Kou model."""
     # Parameters
     S0 = 100     # Initial stock price
@@ -268,14 +285,14 @@ def test_kou_pricing():
     eta2 = 5.0   # Negative jump parameter (> 0)
     p = 0.3      # Probability of positive jump
     lambd = 1.0  # Jump intensity
-    M = 10000    # Number of simulations
+    M = 100_000    # Number of simulations
     
     # Price call option
-    call_price = kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.CALL)
+    call_price = kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.CALL)
     print(f"Call option price: {call_price:.4f}")
     
     # Price put option
-    put_price = kou_option_price(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.PUT)
+    put_price = kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.PUT)
     print(f"Put option price: {put_price:.4f}")
     
     # Verify put-call parity (approximately)
@@ -286,5 +303,7 @@ def test_kou_pricing():
 if __name__ == "__main__":
     # test_jump_pdf()
     # print(generate_jump_sizes(0.3, 5, 5, 10, 5))
-    test_kou_process()
+    # test_kou_process()
+    # test_kou_pricing()
+    test_kou_pricing_mc()
     
