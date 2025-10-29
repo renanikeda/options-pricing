@@ -202,8 +202,8 @@ def test_jump_pdf():
 
 def test_kou_process():
     S0=100
-    r = 0
-    t, S = kou_process(S0=S0, r=r, sigma=0.16, T=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=1)
+    r=0.1
+    t, S = kou_process(S0=S0, r=r, sigma=0.16, T=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=5)
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
