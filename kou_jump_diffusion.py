@@ -82,13 +82,13 @@ def jumps_pdf(T, dt, p, eta1, eta2):
     
     return y, fdp
 
-def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
+def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     """
     Generate a single path of the Kou jump diffusion process.
     
     Parameters:
     S0 (float): initial stock price
-    r (float): risk-free rate
+    mu (float): stock drift
     sigma (float): volatility
     T (float): time to maturity
     dt (float): time step
@@ -117,10 +117,10 @@ def kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     log_S = np.zeros((N+1, M))
     log_S[:, 0] = np.log(S0)
 
-    csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
+    # csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
     dw = np.diff(W, prepend=0)
 
-    log_S = np.log(S0) + r*time_matrix - 0.5*sigma**2*time_matrix + sigma*dw
+    log_S = np.log(S0) + mu*time_matrix - 0.5*sigma**2*time_matrix + sigma*dw
 
     for path_index in range(M):
         n_jumps = poisson_jumps[path_index,-1]
@@ -304,6 +304,6 @@ if __name__ == "__main__":
     # test_jump_pdf()
     # print(generate_jump_sizes(0.3, 5, 5, 10, 5))
     # test_kou_process()
-    # test_kou_pricing()
-    test_kou_pricing_mc()
+    # test_kou_pricing_mc()
+    test_kou_pricing()
     
