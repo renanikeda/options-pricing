@@ -1,4 +1,4 @@
-from utils import OptionType
+from utils import OptionType, colors
 from brownian_motion import brownian_motion
 import matplotlib.pyplot as plt
 import numpy as np
@@ -156,9 +156,15 @@ def kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type
     """
     dt = 0.01  # Fixed time step
     payoffs = np.zeros(M)
+    N = int(T / dt)
+    t = np.linspace(0, T, N + 1)
     
     # Generate stock price path
-    _, S_path = kou_process(S0, r, sigma, T, dt, eta1, eta2, p, lambd, M)
+    csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
+    mu_risk_free = r - 0.5*sigma**2 - lambd * csi
+    sigma_risk_free = sigma * np.sqrt(t)
+    sigma_risk_free = sigma_risk_free[:, np.newaxis]
+    _, S_path = kou_process(S0, mu_risk_free, sigma_risk_free, T, dt, eta1, eta2, p, lambd, M)
     S_T = S_path[-1, :]  # Final stock price
     
     # Calculate payoff
@@ -240,7 +246,6 @@ def test_kou_process():
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
-    colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
     
     for i in range(S.shape[1]):
         plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
@@ -300,10 +305,44 @@ def test_kou_pricing_mc():
     parity_diff = call_price - put_price - (S0 - pv_strike)
     print(f"Put-call parity difference: {parity_diff:.4f}")
 
+def test_kou_process_risk_neutral():
+    S0=100
+    r=0.15
+    T = 1.0
+    dt=0.001
+    sigma = 0.2
+    eta1=20
+    eta2=20
+    p=0.25
+    lambd=3
+    M = 10
+
+    N = int(T / dt)
+    t = np.linspace(0, T, N + 1)
+    csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
+    mu_risk_free = r - 0.5*sigma**2 - lambd * csi
+    sigma_risk_free = sigma * np.sqrt(t)
+    sigma_risk_free = sigma_risk_free[:, np.newaxis]
+
+    t, S = kou_process(S0, mu_risk_free, sigma_risk_free, T, dt, eta1, eta2, p, lambd, M)
+    risk_free_rate = np.exp(r * t) * S0
+
+    plt.figure(figsize=(10, 6))
+    # plt.plot(t, S, 'r-', linewidth=0.5)
+    for i in range(S.shape[1]):
+        plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
+    plt.plot(t, risk_free_rate, 'k-', linewidth=1)
+    plt.title('Kou Jump Diffusion Process')
+    plt.xlabel('Time')
+    plt.ylabel('Stock Price')
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
 if __name__ == "__main__":
     # test_jump_pdf()
     # print(generate_jump_sizes(0.3, 5, 5, 10, 5))
     # test_kou_process()
-    # test_kou_pricing_mc()
-    test_kou_pricing()
+    # test_kou_pricing()
+    test_kou_process_risk_neutral()
+    test_kou_pricing_mc()
     
