@@ -33,11 +33,11 @@ def black_scholes_merton(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL
 
 
 if __name__ == "__main__":
-    S0 = 10
-    sigma = 0.2
-    r = 0.5
-    T = 1
-    K = 15
+    S0 = 100
+    sigma = 0.16
+    r = 0.05
+    T = 0.5
+    K = 98
 
     BSM_call = black_scholes_merton(S0, K, T, r, sigma, OptionType.CALL)
     BSM_put = black_scholes_merton(S0, K, T, r, sigma, OptionType.PUT)

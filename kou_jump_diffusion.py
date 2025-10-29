@@ -120,7 +120,7 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     # csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
     dw = np.diff(W, prepend=0)
 
-    log_S = np.log(S0) + mu*time_matrix - 0.5*sigma**2*time_matrix + sigma*dw
+    log_S = np.log(S0) + mu*time_matrix - 0.5*(sigma**2)*time_matrix + sigma*W
 
     for path_index in range(M):
         n_jumps = poisson_jumps[path_index,-1]
@@ -132,9 +132,9 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
             if jumps_sum.size == 0: jumps_sum.resize(M)
             log_S[i, path_index] += jumps_sum
 
-    return t, np.exp(log_S)
+    return t[:N], np.exp(log_S)[:N, :]
 
-def kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
+def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
     """
     Price European option using Monte Carlo simulation with Kou jump diffusion.
     
@@ -154,7 +154,6 @@ def kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type
     Returns:
     float: option price
     """
-    dt = 0.01  # Fixed time step
     payoffs = np.zeros(M)
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
@@ -165,8 +164,9 @@ def kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, option_type
     sigma_risk_free = sigma * np.sqrt(t)
     sigma_risk_free = sigma_risk_free[:, np.newaxis]
     _, S_path = kou_process(S0, mu_risk_free, sigma_risk_free, T, dt, eta1, eta2, p, lambd, M)
-    S_T = S_path[-1, :]  # Final stock price
     
+    S_T = S_path[-1, :]  # Final stock price
+
     # Calculate payoff
     if option_type == OptionType.CALL:
         payoffs = np.max(S_T - K, 0)
@@ -282,22 +282,23 @@ def test_kou_pricing_mc():
     """Test option pricing with Kou model."""
     # Parameters
     S0 = 100     # Initial stock price
-    K = 100      # Strike price
+    K = 98      # Strike price
     r = 0.05     # Risk-free rate
-    sigma = 0.2  # Volatility
-    T = 1.0      # Time to maturity
-    eta1 = 5.0   # Positive jump parameter (> 1)
+    sigma = 0.16  # Volatility
+    T = 0.5      # Time to maturity
+    dt = 0.001
+    eta1 = 10.0   # Positive jump parameter (> 1)
     eta2 = 5.0   # Negative jump parameter (> 0)
-    p = 0.3      # Probability of positive jump
+    p = 0.4      # Probability of positive jump
     lambd = 1.0  # Jump intensity
-    M = 100_000    # Number of simulations
+    M = 30_000    # Number of simulations
     
     # Price call option
-    call_price = kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.CALL)
+    call_price = kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, OptionType.CALL)
     print(f"Call option price: {call_price:.4f}")
     
     # Price put option
-    put_price = kou_option_price_mc(S0, K, r, sigma, T, eta1, eta2, p, lambd, M, OptionType.PUT)
+    put_price = kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, OptionType.PUT)
     print(f"Put option price: {put_price:.4f}")
     
     # Verify put-call parity (approximately)
@@ -306,15 +307,16 @@ def test_kou_pricing_mc():
     print(f"Put-call parity difference: {parity_diff:.4f}")
 
 def test_kou_process_risk_neutral():
-    S0=100
-    r=0.15
-    T = 1.0
-    dt=0.001
-    sigma = 0.2
-    eta1=20
-    eta2=20
-    p=0.25
-    lambd=3
+    dt = 0.001
+    S0 = 100     # Initial stock price
+    K = 98      # Strike price
+    r = 0.05     # Risk-free rate
+    sigma = 0.16  # Volatility
+    T = 0.5      # Time to maturity
+    eta1 = 10.0   # Positive jump parameter (> 1)
+    eta2 = 5.0   # Negative jump parameter (> 0)
+    p = 0.4      # Probability of positive jump
+    lambd = 1.0  # Jump intensity
     M = 10
 
     N = int(T / dt)
@@ -343,6 +345,6 @@ if __name__ == "__main__":
     # print(generate_jump_sizes(0.3, 5, 5, 10, 5))
     # test_kou_process()
     # test_kou_pricing()
-    test_kou_process_risk_neutral()
+    # test_kou_process_risk_neutral()
     test_kou_pricing_mc()
     

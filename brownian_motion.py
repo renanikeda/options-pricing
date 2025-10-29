@@ -61,7 +61,7 @@ def test_brownian_motion():
     plt.show()
 
 def test_geometric_brownian_motion():
-    risk_free_rate = 0.07
+    risk_free_rate = 0.05
     t, GBM = geometric_brownian_motion(r =risk_free_rate, M=10)
     risk_free_slope = np.exp(risk_free_rate * t)
 
@@ -75,7 +75,7 @@ def test_geometric_brownian_motion():
     plt.show()
 
 if __name__ == "__main__":
-    test_brownian_motion()
+    # test_brownian_motion()
     test_geometric_brownian_motion()
 
 
