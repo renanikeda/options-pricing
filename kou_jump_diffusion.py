@@ -22,37 +22,25 @@ def poisson_process(lambd, T, dt, M=1):
 
 def generate_jump_sizes(p, eta1, eta2, num_jumps):
     """
-    Generate jump sizes from the double exponential distribution.
-    
-    Parameters:
-    p (float): probability of positive jump
-    eta1 (float): parameter for positive jumps
-    eta2 (float): parameter for negative jumps  
-    num_jumps (int): number of jumps to generate
-    
-    Returns:
-    np.array: array of jump sizes
+    Sample n independent draws of Y ~ Kou double-exponential (log-jump).
+    Return array of length n.
+    Implementation:
+      - with probability p: Y = +Exp(scale=1/eta1) (positive)
+      - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
     """
-    if num_jumps == 0:
-        return np.array([[]])
-    
-    # Generate random numbers to determine jump direction
-    directions = np.random.random(num_jumps)
-    jump_sizes = np.zeros(num_jumps)
-    
-    # Positive jumps
-    positive_mask = directions < p
-    num_positive = np.sum(positive_mask)
-    if num_positive > 0:
-        jump_sizes[positive_mask] = np.random.exponential(1/eta1, num_positive)
-    
-    # Negative jumps
-    negative_mask = ~positive_mask
-    num_negative = np.sum(negative_mask)
-    if num_negative > 0:
-        jump_sizes[negative_mask] = -np.random.exponential(1/eta2, num_negative)
-    
-    return jump_sizes
+    u = np.random.rand(num_jumps)
+    pos_mask = (u < p)
+    neg_mask = ~pos_mask
+    Y = np.empty(num_jumps, dtype=float)
+    # positive jumps
+    npos = pos_mask.sum()
+    if npos > 0:
+        Y[pos_mask] = np.random.exponential(scale=1.0/eta1, size=npos)
+    # negative jumps
+    nneg = neg_mask.sum()
+    if nneg > 0:
+        Y[neg_mask] = -np.random.exponential(scale=1.0/eta2, size=nneg)
+    return Y
 
 def jumps_pdf(T, dt, p, eta1, eta2):
     """
@@ -104,33 +92,28 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     t = np.linspace(0, T, N + 1)
     
     # Generate Brownian motion
-    t, W = brownian_motion(T, dt, M)
     time_matrix = np.repeat(t, M).reshape(N+1,M)
 
-    # W = W.flatten()
-    
     # Generate Poisson jumps
     poisson_jumps = poisson_process(lambd, T, dt, M)
 
     # n_jumps = poisson_jumps[-1]
     # Initialize log price process
     log_S = np.zeros((N+1, M))
-    log_S[:, 0] = np.log(S0)
+    log_S[0, :] = np.log(S0)
 
-    # csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
-    dw = np.diff(W, prepend=0)
+    dW = np.sqrt(dt) * np.random.normal(size=(N+1,M))
+    log_S = np.log(S0) + mu*time_matrix - 0.5*(sigma**2)*time_matrix + sigma*dW
 
-    log_S = np.log(S0) + mu*time_matrix - 0.5*(sigma**2)*time_matrix + sigma*W
-
-    for path_index in range(M):
-        n_jumps = poisson_jumps[path_index,-1]
-        jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps)
-        if jumps_generated.size == 0: continue
-        for i in range(N):
-            jump_index = poisson_jumps[path_index, i]
-            jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
-            if jumps_sum.size == 0: jumps_sum.resize(M)
-            log_S[i, path_index] += jumps_sum
+    # for path_index in range(M):
+    #     n_jumps = poisson_jumps[path_index,-1]
+    #     jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps)
+    #     if jumps_generated.size == 0: continue
+    #     for i in range(N):
+    #         jump_index = poisson_jumps[path_index, i]
+    #         jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
+    #         if jumps_sum.size == 0: jumps_sum.resize(M)
+    #         log_S[i, path_index] += jumps_sum
 
     return t[:N], np.exp(log_S)[:N, :]
 
@@ -159,11 +142,10 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
     t = np.linspace(0, T, N + 1)
     
     # Generate stock price path
-    csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
-    mu_risk_free = r - 0.5*sigma**2 - lambd * csi
-    sigma_risk_free = sigma * np.sqrt(t)
-    sigma_risk_free = sigma_risk_free[:, np.newaxis]
-    _, S_path = kou_process(S0, mu_risk_free, sigma_risk_free, T, dt, eta1, eta2, p, lambd, M)
+    csi = p * eta1 / (eta1 - 1.0) + (1.0 - p) * eta2 / (eta2 + 1.0) - 1.0
+    mu_risk_neutral = r - 0.5*sigma**2 - lambd * csi
+    
+    _, S_path = kou_process(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
     
     S_T = S_path[-1, :]  # Final stock price
 
