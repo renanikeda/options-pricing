@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def brownian_motion(T=10, dt=0.01, M=1):
+def brownian_motion_diff(T=10, dt=0.01, M=1):
     """
     Simulate a Geometric Brownian Motion (GBM) path.
     
@@ -18,9 +18,29 @@ def brownian_motion(T=10, dt=0.01, M=1):
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
     
-    dW = np.sqrt(dt) * np.random.normal(size=(N,M))
+    dW = np.sqrt(dt) * np.random.normal(size=(N+1,M))
+    return t, dW
+
+
+def brownian_motion(T=10, dt=0.01, M=1):
+    """
+    Simulate a Geometric Brownian Motion (GBM) path.
+    
+    Parameters:
+    T : float : time horizon
+    dt : float : time step size
+    M : int : number of simulation paths
+    
+    Returns:
+    t : numpy array : time points
+    W: numpy array : simulated stock prices
+    """
+
+    N = int(T / dt)
+    
+    t, dW = brownian_motion_diff(T, dt, M)
     W = np.zeros((N + 1,M))
-    W[1:,:] = np.cumsum(dW, axis=0)
+    W[1:,:] = np.cumsum(dW[:-1,:], axis=0)
 
     return t, W
 

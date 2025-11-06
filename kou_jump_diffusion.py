@@ -1,5 +1,5 @@
 from utils import OptionType, colors
-from brownian_motion import brownian_motion
+from brownian_motion import brownian_motion_diff, brownian_motion
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -97,23 +97,36 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     # Generate Poisson jumps
     poisson_jumps = poisson_process(lambd, T, dt, M)
 
-    # n_jumps = poisson_jumps[-1]
-    # Initialize log price process
     log_S = np.zeros((N+1, M))
     log_S[0, :] = np.log(S0)
 
-    dW = np.sqrt(dt) * np.random.normal(size=(N+1,M))
+    t, dW = brownian_motion_diff(T, dt, M)
     log_S = np.log(S0) + mu*time_matrix - 0.5*(sigma**2)*time_matrix + sigma*dW
 
-    # for path_index in range(M):
-    #     n_jumps = poisson_jumps[path_index,-1]
-    #     jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps)
-    #     if jumps_generated.size == 0: continue
-    #     for i in range(N):
-    #         jump_index = poisson_jumps[path_index, i]
-    #         jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
-    #         if jumps_sum.size == 0: jumps_sum.resize(M)
+    for path_index in range(M):
+        n_jumps = poisson_jumps[path_index,-1]
+        jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
+        # if (path_index <= 5):
+        #     print(jumps_generated.shape)
+        #     print(jumps_generated)
+        #     print(poisson_jumps[path_index,:])
+        if jumps_generated.size == 0: continue
+        for i in range(N):
+            jump_index = poisson_jumps[path_index, i]
+            if jump_index == 0: continue
+            jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
+            log_S[i, path_index] += jumps_sum
+
+    # for i in range(N):
+    #     jump_indices = poisson_jumps[:, i]
+    #     for path_index in range(M):
+    #         jump_index = jump_indices[path_index]
+    #         if jump_index == 0:
+    #             continue
+    #         jumps_generated = generate_jump_sizes(p, eta1, eta2, jump_index)
+    #         jumps_sum = np.sum(jumps_generated, axis=0)
     #         log_S[i, path_index] += jumps_sum
+
 
     return t[:N], np.exp(log_S)[:N, :]
 
@@ -268,7 +281,7 @@ def test_kou_pricing_mc():
     r = 0.05     # Risk-free rate
     sigma = 0.16  # Volatility
     T = 0.5      # Time to maturity
-    dt = 0.001
+    dt = 0.0005
     eta1 = 10.0   # Positive jump parameter (> 1)
     eta2 = 5.0   # Negative jump parameter (> 0)
     p = 0.4      # Probability of positive jump
