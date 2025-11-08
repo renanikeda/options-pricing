@@ -98,35 +98,21 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     poisson_jumps = poisson_process(lambd, T, dt, M)
 
     log_S = np.zeros((N+1, M))
-    log_S[0, :] = np.log(S0)
+    # log_S[0, :] = np.log(S0)
+    # log_S = np.full(M, np.log(S0), dtype=float)
 
     t, dW = brownian_motion_diff(T, dt, M)
-    log_S = np.log(S0) + mu*time_matrix - 0.5*(sigma**2)*time_matrix + sigma*dW
+    log_S = np.log(S0) + mu*time_matrix + sigma*dW
 
-    for path_index in range(M):
-        n_jumps = poisson_jumps[path_index,-1]
-        jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
-        # if (path_index <= 5):
-        #     print(jumps_generated.shape)
-        #     print(jumps_generated)
-        #     print(poisson_jumps[path_index,:])
-        if jumps_generated.size == 0: continue
-        for i in range(N):
-            jump_index = poisson_jumps[path_index, i]
-            if jump_index == 0: continue
-            jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
-            log_S[i, path_index] += jumps_sum
-
-    # for i in range(N):
-    #     jump_indices = poisson_jumps[:, i]
-    #     for path_index in range(M):
-    #         jump_index = jump_indices[path_index]
-    #         if jump_index == 0:
-    #             continue
-    #         jumps_generated = generate_jump_sizes(p, eta1, eta2, jump_index)
-    #         jumps_sum = np.sum(jumps_generated, axis=0)
+    # for path_index in range(M):
+    #     n_jumps = poisson_jumps[path_index,-1]
+    #     jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
+    #     if jumps_generated.size == 0: continue
+    #     for i in range(N):
+    #         jump_index = poisson_jumps[path_index, i]
+    #         if jump_index == 0: continue
+    #         jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
     #         log_S[i, path_index] += jumps_sum
-
 
     return t[:N], np.exp(log_S)[:N, :]
 
@@ -164,9 +150,9 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
 
     # Calculate payoff
     if option_type == OptionType.CALL:
-        payoffs = np.max(S_T - K, 0)
+        payoffs = np.maximum(S_T - K, 0)
     elif option_type == OptionType.PUT:
-        payoffs = np.max(K - S_T, 0)
+        payoffs = np.maximum(K - S_T, 0)
     else:
         raise ValueError("option_type must be OptionType.CALL or OptionType.PUT")
     
