@@ -98,21 +98,60 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     poisson_jumps = poisson_process(lambd, T, dt, M)
 
     log_S = np.zeros((N+1, M))
-    # log_S[0, :] = np.log(S0)
-    # log_S = np.full(M, np.log(S0), dtype=float)
-
     t, dW = brownian_motion_diff(T, dt, M)
     log_S = np.log(S0) + mu*time_matrix + sigma*dW
 
-    # for path_index in range(M):
-    #     n_jumps = poisson_jumps[path_index,-1]
-    #     jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
-    #     if jumps_generated.size == 0: continue
-    #     for i in range(N):
-    #         jump_index = poisson_jumps[path_index, i]
-    #         if jump_index == 0: continue
-    #         jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
-    #         log_S[i, path_index] += jumps_sum
+    for path_index in range(M):
+        n_jumps = poisson_jumps[path_index,-1]
+        jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
+        if jumps_generated.size == 0: continue
+        for i in range(N):
+            jump_index = poisson_jumps[path_index, i]
+            if jump_index == 0: continue
+            jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
+            log_S[i, path_index] += jumps_sum
+
+    return t[:N], np.exp(log_S)[:N, :]
+
+def kou_process_steps(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
+    """
+    Generate a single path of the Kou jump diffusion process.
+    
+    Parameters:
+    S0 (float): initial stock price
+    mu (float): stock drift
+    sigma (float): volatility
+    T (float): time to maturity
+    dt (float): time step
+    eta1 (float): parameter for positive jumps
+    eta2 (float): parameter for negative jumps
+    p (float): probability of positive jump
+    lambd (float): jump intensity
+    
+    Returns:
+    tuple: (time_grid, stock_price_path)
+    """
+    N = int(T / dt)
+    
+    log_S = np.zeros((N + 1, M))
+    log_S = np.full((N + 1,M), np.log(S0), dtype=float)
+    
+    t, dW = brownian_motion_diff(T, dt, M)
+
+    for step in range(1, N + 1):
+        # diffusion increments
+        # if (step %100 ==0 ): print(step)
+        Z = np.random.randn(M)
+        dW = Z * np.sqrt(dt)
+        log_S[step, :] = log_S[step-1, :] + (mu * dt) + (sigma * dW)
+
+        Nj = np.random.poisson(lambd * dt, size=M)
+        idxs_with_jumps = np.nonzero(Nj)[0]
+        if idxs_with_jumps.size > 0:
+            for i in idxs_with_jumps:
+                nj = Nj[i]
+                Ys = generate_jump_sizes(p, eta1, eta2, nj)
+                log_S[step, i] += Ys.sum()
 
     return t[:N], np.exp(log_S)[:N, :]
 
@@ -137,15 +176,14 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
     float: option price
     """
     payoffs = np.zeros(M)
-    N = int(T / dt)
-    t = np.linspace(0, T, N + 1)
-    
+   
     # Generate stock price path
     csi = p * eta1 / (eta1 - 1.0) + (1.0 - p) * eta2 / (eta2 + 1.0) - 1.0
     mu_risk_neutral = r - 0.5*sigma**2 - lambd * csi
-    
-    _, S_path = kou_process(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
-    
+
+    t, S_path = kou_process_steps(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
+    # plt.plot(t, S_path[:,0:5], '.', markersize=2)
+    # plt.show()
     S_T = S_path[-1, :]  # Final stock price
 
     # Calculate payoff
@@ -272,7 +310,7 @@ def test_kou_pricing_mc():
     eta2 = 5.0   # Negative jump parameter (> 0)
     p = 0.4      # Probability of positive jump
     lambd = 1.0  # Jump intensity
-    M = 30_000    # Number of simulations
+    M = 100_000    # Number of simulations
     
     # Price call option
     call_price = kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, OptionType.CALL)
