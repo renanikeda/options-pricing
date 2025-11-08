@@ -17,8 +17,9 @@ def poisson_process(lambd, T, dt, M=1):
     np.array: array of jump counts
     """
     N = int(T / dt)
-    jumps = np.random.poisson(lambd * dt, (M,N))
-    return np.cumsum(jumps, axis=1)
+    jumps = np.random.poisson(lambd * dt, (M, N + 1))
+    # return np.cumsum(jumps, axis=1)
+    return jumps
 
 def generate_jump_sizes(p, eta1, eta2, num_jumps):
     """
@@ -40,6 +41,30 @@ def generate_jump_sizes(p, eta1, eta2, num_jumps):
     nneg = neg_mask.sum()
     if nneg > 0:
         Y[neg_mask] = -np.random.exponential(scale=1.0/eta2, size=nneg)
+    return Y
+
+def generate_matrix_jump_sizes(p, eta1, eta2, jumps):
+    """
+    Sample n independent draws of Y ~ Kou double-exponential (log-jump).
+    Return array of length n.
+    Implementation:
+      - with probability p: Y = +Exp(scale=1/eta1) (positive)
+      - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
+    """
+    Y = np.empty(jumps.shape, dtype=float)
+    for n in range(jumps.shape[1]):
+        u = np.random.rand(jumps.shape[0])
+        pos_mask = (u < p)
+        neg_mask = ~pos_mask
+        # positive jumps
+        npos = pos_mask.sum()
+        if npos > 0:
+            Y[pos_mask, n] = np.random.exponential(scale=1.0/eta1, size=npos)
+        # negative jumps
+        nneg = neg_mask.sum()
+        if nneg > 0:
+            Y[neg_mask, n] = -np.random.exponential(scale=1.0/eta2, size=nneg)
+        Y[:, n] *= jumps[:, n]
     return Y
 
 def jumps_pdf(T, dt, p, eta1, eta2):
@@ -96,20 +121,11 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
 
     # Generate Poisson jumps
     poisson_jumps = poisson_process(lambd, T, dt, M)
+    generated_jumps_matrix = generate_matrix_jump_sizes(p, eta1, eta2, poisson_jumps)
 
     log_S = np.zeros((N+1, M))
     t, W = brownian_motion(T, dt, M)
-    log_S = np.log(S0) + mu*time_matrix + sigma*W
-
-    for path_index in range(M):
-        n_jumps = poisson_jumps[path_index,-1]
-        jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
-        if jumps_generated.size == 0: continue
-        for i in range(N):
-            jump_index = poisson_jumps[path_index, i]
-            if jump_index == 0: continue
-            jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
-            log_S[i, path_index] += jumps_sum
+    log_S = np.log(S0) + mu*time_matrix + sigma*W + np.transpose(np.cumsum(generated_jumps_matrix, axis=1))
 
     return t[:N], np.exp(log_S)[:N, :]
 
