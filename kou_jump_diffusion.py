@@ -98,8 +98,8 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     poisson_jumps = poisson_process(lambd, T, dt, M)
 
     log_S = np.zeros((N+1, M))
-    t, dW = brownian_motion_diff(T, dt, M)
-    log_S = np.log(S0) + mu*time_matrix + sigma*dW
+    t, W = brownian_motion(T, dt, M)
+    log_S = np.log(S0) + mu*time_matrix + sigma*W
 
     for path_index in range(M):
         n_jumps = poisson_jumps[path_index,-1]
@@ -137,13 +137,13 @@ def kou_process_steps(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     log_S = np.full((N + 1,M), np.log(S0), dtype=float)
     
     t, dW = brownian_motion_diff(T, dt, M)
+    jumps = np.random.poisson(lambd * dt, size=(N+1, M))
 
     for step in range(1, N + 1):
         Z = np.random.randn(M)
         dW = Z * np.sqrt(dt)
         log_S[step, :] = log_S[step-1, :] + (mu * dt) + (sigma * dW)
-
-        Nj = np.random.poisson(lambd * dt, size=M)
+        Nj = jumps[step, :]
         idxs_with_jumps = np.nonzero(Nj)[0]
         if idxs_with_jumps.size > 0:
             for i in idxs_with_jumps:
@@ -179,7 +179,8 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
     csi = p * eta1 / (eta1 - 1.0) + (1.0 - p) * eta2 / (eta2 + 1.0) - 1.0
     mu_risk_neutral = r - 0.5*sigma**2 - lambd * csi
 
-    t, S_path = kou_process_steps(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
+    _, S_path = kou_process(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
+    # t, S_path = kou_process_steps(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
     # plt.plot(t, S_path[:,0:5], '.', markersize=2)
     # plt.show()
     S_T = S_path[-1, :]  # Final stock price
