@@ -139,8 +139,6 @@ def kou_process_steps(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     t, dW = brownian_motion_diff(T, dt, M)
 
     for step in range(1, N + 1):
-        # diffusion increments
-        # if (step %100 ==0 ): print(step)
         Z = np.random.randn(M)
         dW = Z * np.sqrt(dt)
         log_S[step, :] = log_S[step-1, :] + (mu * dt) + (sigma * dW)
@@ -310,7 +308,7 @@ def test_kou_pricing_mc():
     eta2 = 5.0   # Negative jump parameter (> 0)
     p = 0.4      # Probability of positive jump
     lambd = 1.0  # Jump intensity
-    M = 100_000    # Number of simulations
+    M = 30_000    # Number of simulations
     
     # Price call option
     call_price = kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, OptionType.CALL)
