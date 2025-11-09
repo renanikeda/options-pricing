@@ -17,8 +17,8 @@ def poisson_process(lambd, T, dt, M=1):
     np.array: array of jump counts
     """
     N = int(T / dt)
-    jumps = np.random.poisson(lambd * dt, (M, N + 1))
-    # return np.cumsum(jumps, axis=1)
+    jumps = np.random.poisson(lambd * dt, (N + 1, M))
+
     return jumps
 
 def generate_jump_sizes(p, eta1, eta2, num_jumps):
@@ -125,7 +125,7 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
 
     log_S = np.zeros((N+1, M))
     t, W = brownian_motion(T, dt, M)
-    log_S = np.log(S0) + mu*time_matrix + sigma*W + np.transpose(np.cumsum(generated_jumps_matrix, axis=1))
+    log_S = np.log(S0) + mu*time_matrix + sigma*W + np.cumsum(generated_jumps_matrix, axis=0)
 
     return t[:N], np.exp(log_S)[:N, :]
 
@@ -197,8 +197,6 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
 
     _, S_path = kou_process(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
     # t, S_path = kou_process_steps(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
-    # plt.plot(t, S_path[:,0:5], '.', markersize=2)
-    # plt.show()
     S_T = S_path[-1, :]  # Final stock price
 
     # Calculate payoff
@@ -325,7 +323,7 @@ def test_kou_pricing_mc():
     eta2 = 5.0   # Negative jump parameter (> 0)
     p = 0.4      # Probability of positive jump
     lambd = 1.0  # Jump intensity
-    M = 30_000    # Number of simulations
+    M = 100_000    # Number of simulations
     
     # Price call option
     call_price = kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, OptionType.CALL)
@@ -364,9 +362,7 @@ def test_kou_process_risk_neutral():
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
-    # plt.plot(t, S, 'r-', linewidth=0.5)
-    for i in range(S.shape[1]):
-        plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
+    plt.plot(t, S, '.', color=colors[i], markersize=2)
     plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
     plt.xlabel('Time')
