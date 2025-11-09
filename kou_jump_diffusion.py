@@ -1,6 +1,8 @@
 from utils import OptionType, colors
 from brownian_motion import brownian_motion_diff, brownian_motion
 import matplotlib.pyplot as plt
+from scipy.stats import norm
+from scipy.special import binom
 import numpy as np
 import math
 from typing import Tuple
@@ -147,7 +149,7 @@ def kou_process(S0: float, mu: float, sigma: float, T: float, dt: float,
     t, W = brownian_motion(T, dt, M)
     log_S = np.log(S0) + mu*time_matrix + sigma*W + np.cumsum(generated_jumps_matrix, axis=0)
 
-    return t[:N], np.exp(log_S)[:N, :]
+    return t, np.exp(log_S)
 
 def kou_process_steps(S0: float, mu: float, sigma: float, T: float, dt: float,
                       eta1: float, eta2: float, p: float, lambd: float, M: int = 5) -> Tuple[np.ndarray, np.ndarray]:
@@ -235,46 +237,36 @@ def kou_option_price_mc(S0: float, K: float, r: float, sigma: float, T: float, d
     option_price = np.exp(-r * T) * np.mean(payoffs)
     return option_price
 
-def zeta_kou(T: float, dt: float, r: float, sigma: float, 
-             eta1: float, eta2: float, p: float, lambd: float) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Generate zeta process for Kou model.
-    
-    Parameters:
-    T (float): time horizon
-    dt (float): time step
-    r (float): risk-free rate
-    sigma (float): volatility
-    eta1 (float): parameter for positive jumps
-    eta2 (float): parameter for negative jumps
-    p (float): probability of positive jump
-    lambd (float): jump intensity
-    
-    Returns:
-    Tuple[np.ndarray, np.ndarray]: (time grid, zeta values)
-    """
-    N = int(T / dt)
-    t = np.linspace(0, T, N + 1)
-    
-    # Generate Brownian motion
-    t, W = brownian_motion(T, dt, M=1)
-    W = W.flatten()
+def phi(x: float) -> float:
+    return norm.cdf(x)
 
-    poisson_jumps = poisson_process(lambd, T, dt, M=1).flatten()
-    n_jumps = poisson_jumps[-1] if poisson_jumps.size > 0 else 0
+def P(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
+    result = 0.0
+    if k < 1 or n < 1: return 0
+    for i in range(k, n):
+        result += binom(n - k - 1, i - k) * binom(n, i) * binom(eta_1, eta_1 + eta_2)**(i - k) * binom(eta_2, eta_1 + eta_2)**(n - i) * (p ** i) * ((1 - p) ** (n - i))
+    return result
 
-    zeta = np.zeros(N+1)
-    zeta = r*t + sigma*W
+def Q(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
+    result = 0.0
+    if k < 1 or n < 1: return 0
+    for i in range(k, n):
+        result += binom(n - k - 1, i - k) * binom(n, i) * binom(eta_1, eta_1 + eta_2)**(n - 1) * binom(eta_2, eta_1 + eta_2)**(i - k) * (p ** (n - i)) * ((1 - p) ** i)
+    return result
 
-    jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
-    if jumps_generated.size == 0: 
-        return t, zeta
-    for i in range(N):
-        jump_index = poisson_jumps[i]
-        jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
-        zeta[i] += jumps_sum
-    
-    return t, zeta
+def pi(n: int, lambd: float, T: float) -> float:
+    return (np.exp(-lambd*T)*(lambd*T)**n)/math.factorial(n)
+
+def Hh(n: int, x: float) -> float:
+    if n<-1: return 0
+    elif n==-1:
+        return np.exp(-x**2/2)
+    elif n==0:
+        return math.sqrt(2*np.pi)*norm.cdf(-x)
+    else:
+        return (Hh(n-2,x)-x*Hh(n-1,x))/n
+
+def I()
 
 def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float, dt: float,
                      eta1: float, eta2: float, p: float, lambd: float,  
@@ -298,8 +290,6 @@ def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float, dt: 
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
     
-    zeta = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd)
-
 
 def test_poisson_process() -> None:
     """Test the Poisson process visualization."""
