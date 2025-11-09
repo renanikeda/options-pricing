@@ -3,8 +3,9 @@ from brownian_motion import brownian_motion_diff, brownian_motion
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+from typing import Tuple
 
-def poisson_process(lambd, T, dt, M=1):
+def poisson_process(lambd: float, T: float, dt: float, M: int = 1) -> np.ndarray:
     """
     Poisson process.
     
@@ -12,22 +13,31 @@ def poisson_process(lambd, T, dt, M=1):
     lambd (float): intensity parameter
     T (float): time horizon
     dt (float): step discretization
+    M (int): number of paths
     
     Returns:
-    np.array: array of jump counts
+    np.ndarray: array of jump counts
     """
     N = int(T / dt)
     jumps = np.random.poisson(lambd * dt, (N + 1, M))
-
     return jumps
 
-def generate_jump_sizes(p, eta1, eta2, num_jumps):
+def generate_jump_sizes(p: float, eta1: float, eta2: float, num_jumps: int) -> np.ndarray:
     """
     Sample n independent draws of Y ~ Kou double-exponential (log-jump).
     Return array of length n.
     Implementation:
       - with probability p: Y = +Exp(scale=1/eta1) (positive)
       - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
+    
+    Parameters:
+    p (float): probability of positive jump
+    eta1 (float): parameter for positive jumps
+    eta2 (float): parameter for negative jumps
+    num_jumps (int): number of jumps to generate
+    
+    Returns:
+    np.ndarray: array of jump sizes
     """
     u = np.random.rand(num_jumps)
     pos_mask = (u < p)
@@ -43,13 +53,22 @@ def generate_jump_sizes(p, eta1, eta2, num_jumps):
         Y[neg_mask] = -np.random.exponential(scale=1.0/eta2, size=nneg)
     return Y
 
-def generate_matrix_jump_sizes(p, eta1, eta2, jumps):
+def generate_matrix_jump_sizes(p: float, eta1: float, eta2: float, jumps: np.ndarray) -> np.ndarray:
     """
     Sample n independent draws of Y ~ Kou double-exponential (log-jump).
     Return array of length n.
     Implementation:
       - with probability p: Y = +Exp(scale=1/eta1) (positive)
       - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
+    
+    Parameters:
+    p (float): probability of positive jump
+    eta1 (float): parameter for positive jumps
+    eta2 (float): parameter for negative jumps
+    jumps (np.ndarray): matrix of jump counts (N x M)
+    
+    Returns:
+    np.ndarray: matrix of jump sizes
     """
     Y = np.empty(jumps.shape, dtype=float)
     for n in range(jumps.shape[1]):
@@ -67,22 +86,21 @@ def generate_matrix_jump_sizes(p, eta1, eta2, jumps):
         Y[:, n] *= jumps[:, n]
     return Y
 
-def jumps_pdf(T, dt, p, eta1, eta2):
+def jumps_pdf(T: float, dt: float, p: float, eta1: float, eta2: float) -> Tuple[np.ndarray, np.ndarray]:
     """
     Calculate the PDF of jump sizes for the double exponential distribution.
     
     Parameters:
-    y (float or array): values where to evaluate the density
+    T (float): time horizon
+    dt (float): time step
     p (float): probability of positive jump
     eta1 (float): parameter for positive jumps
     eta2 (float): parameter for negative jumps
     
     Returns:
-    float or np.array: PDF values
+    Tuple[np.ndarray, np.ndarray]: (y values, PDF values)
     """
-
     y = np.linspace(-math.floor(T/2), math.floor(T/2), math.floor(1/dt))
-    # y = np.asarray(y)
     fdp = np.zeros_like(y, dtype=float)
     
     # Positive part (y >= 0)
@@ -95,7 +113,8 @@ def jumps_pdf(T, dt, p, eta1, eta2):
     
     return y, fdp
 
-def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
+def kou_process(S0: float, mu: float, sigma: float, T: float, dt: float, 
+                eta1: float, eta2: float, p: float, lambd: float, M: int = 5) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate a single path of the Kou jump diffusion process.
     
@@ -109,15 +128,16 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     eta2 (float): parameter for negative jumps
     p (float): probability of positive jump
     lambd (float): jump intensity
+    M (int): number of paths
     
     Returns:
-    tuple: (time_grid, stock_price_path)
+    Tuple[np.ndarray, np.ndarray]: (time_grid, stock_price_path)
     """
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
     
     # Generate Brownian motion
-    time_matrix = np.repeat(t, M).reshape(N+1,M)
+    time_matrix = np.repeat(t, M).reshape(N+1, M)
 
     # Generate Poisson jumps
     poisson_jumps = poisson_process(lambd, T, dt, M)
@@ -129,7 +149,8 @@ def kou_process(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
 
     return t[:N], np.exp(log_S)[:N, :]
 
-def kou_process_steps(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
+def kou_process_steps(S0: float, mu: float, sigma: float, T: float, dt: float,
+                      eta1: float, eta2: float, p: float, lambd: float, M: int = 5) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate a single path of the Kou jump diffusion process.
     
@@ -143,14 +164,15 @@ def kou_process_steps(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
     eta2 (float): parameter for negative jumps
     p (float): probability of positive jump
     lambd (float): jump intensity
+    M (int): number of paths
     
     Returns:
-    tuple: (time_grid, stock_price_path)
+    Tuple[np.ndarray, np.ndarray]: (time_grid, stock_price_path)
     """
     N = int(T / dt)
     
     log_S = np.zeros((N + 1, M))
-    log_S = np.full((N + 1,M), np.log(S0), dtype=float)
+    log_S = np.full((N + 1, M), np.log(S0), dtype=float)
     
     t, dW = brownian_motion_diff(T, dt, M)
     jumps = np.random.poisson(lambd * dt, size=(N+1, M))
@@ -169,7 +191,9 @@ def kou_process_steps(S0, mu, sigma, T, dt, eta1, eta2, p, lambd, M=5):
 
     return t[:N], np.exp(log_S)[:N, :]
 
-def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_type=OptionType.CALL):
+def kou_option_price_mc(S0: float, K: float, r: float, sigma: float, T: float, dt: float,
+                        eta1: float, eta2: float, p: float, lambd: float, M: int, 
+                        option_type: OptionType = OptionType.CALL) -> float:
     """
     Price European option using Monte Carlo simulation with Kou jump diffusion.
     
@@ -179,6 +203,7 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
     r (float): risk-free rate
     sigma (float): volatility
     T (float): time to maturity
+    dt (float): time step
     eta1 (float): parameter for positive jumps (> 1)
     eta2 (float): parameter for negative jumps (> 0)
     p (float): probability of positive jump
@@ -196,7 +221,6 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
     mu_risk_neutral = r - 0.5*sigma**2 - lambd * csi
 
     _, S_path = kou_process(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
-    # t, S_path = kou_process_steps(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
     S_T = S_path[-1, :]  # Final stock price
 
     # Calculate payoff
@@ -211,7 +235,24 @@ def kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, option_
     option_price = np.exp(-r * T) * np.mean(payoffs)
     return option_price
 
-def zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd):
+def zeta_kou(T: float, dt: float, r: float, sigma: float, 
+             eta1: float, eta2: float, p: float, lambd: float) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Generate zeta process for Kou model.
+    
+    Parameters:
+    T (float): time horizon
+    dt (float): time step
+    r (float): risk-free rate
+    sigma (float): volatility
+    eta1 (float): parameter for positive jumps
+    eta2 (float): parameter for negative jumps
+    p (float): probability of positive jump
+    lambd (float): jump intensity
+    
+    Returns:
+    Tuple[np.ndarray, np.ndarray]: (time grid, zeta values)
+    """
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
     
@@ -225,8 +266,9 @@ def zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd):
     zeta = np.zeros(N+1)
     zeta = r*t + sigma*W
 
-    jumps_generated= generate_jump_sizes(p, eta1, eta2, n_jumps)
-    if jumps_generated.size == 0: return t, zeta
+    jumps_generated = generate_jump_sizes(p, eta1, eta2, n_jumps)
+    if jumps_generated.size == 0: 
+        return t, zeta
     for i in range(N):
         jump_index = poisson_jumps[i]
         jumps_sum = np.sum(jumps_generated[:jump_index], axis=0)
@@ -234,14 +276,33 @@ def zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd):
     
     return t, zeta
 
-def kou_option_price(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd,  option_type=OptionType.CALL):
+def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float, dt: float,
+                     eta1: float, eta2: float, p: float, lambd: float,  
+                     option_type: OptionType = OptionType.CALL) -> None:
+    """
+    Price option using Kou model (incomplete implementation).
+    
+    Parameters:
+    S0 (float): initial stock price
+    K (float): strike price
+    r (float): risk-free rate
+    sigma (float): volatility
+    T (float): time to maturity
+    dt (float): time step
+    eta1 (float): parameter for positive jumps
+    eta2 (float): parameter for negative jumps
+    p (float): probability of positive jump
+    lambd (float): jump intensity
+    option_type (OptionType): CALL or PUT
+    """
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
     
     zeta = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd)
 
 
-def test_poisson_process():
+def test_poisson_process() -> None:
+    """Test the Poisson process visualization."""
     lambd = 1
     T = 5
     dt = 0.01
@@ -253,12 +314,10 @@ def test_poisson_process():
     plt.grid()
     plt.show()
 
-def test_jump_pdf():
+def test_jump_pdf() -> None:
     """Test the jump size PDF visualization."""
     T = 5
     dt = 0.01
-    N = int(T / dt)
-    # t = np.linspace(0, T, N + 1)
 
     y, fdp = jumps_pdf(T, dt, 0.3, 5, 5)
     
@@ -271,9 +330,10 @@ def test_jump_pdf():
     plt.axvline(x=0, color='r', linestyle='--', alpha=0.5)
     plt.show()
 
-def test_kou_process():
-    S0=100
-    r=0.1
+def test_kou_process() -> None:
+    """Test the Kou process visualization."""
+    S0 = 100
+    r = 0.1
     t, S = kou_process(S0=S0, r=r, sigma=0.16, T=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=5)
     risk_free_rate = np.exp(r * t) * S0
 
@@ -281,8 +341,6 @@ def test_kou_process():
     
     for i in range(S.shape[1]):
         plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
-    # plt.plot(t, S, 'b.', markersize=2)
-    # plt.plot(t, S, 'r-', linewidth=0.5)
     plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
     plt.xlabel('Time')
@@ -290,16 +348,17 @@ def test_kou_process():
     plt.grid(True, alpha=0.3)
     plt.show()
 
-def test_kou_pricing():
-    S0=100
-    r=0.1
+def test_kou_pricing() -> None:
+    """Test Kou pricing visualization."""
+    S0 = 100
+    r = 0.1
     T = 1.0
-    dt=0.01
+    dt = 0.01
     sigma = 0.2
-    eta1=20
-    eta2=20
-    p=0.25
-    lambd=3
+    eta1 = 20
+    eta2 = 20
+    p = 0.25
+    lambd = 3
     t, S = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd)
 
     plt.figure(figsize=(10, 6))
@@ -310,20 +369,20 @@ def test_kou_pricing():
     plt.grid(True, alpha=0.3)
     plt.show()
 
-def test_kou_pricing_mc():
+def test_kou_pricing_mc() -> None:
     """Test option pricing with Kou model."""
     # Parameters
     S0 = 100     # Initial stock price
-    K = 98      # Strike price
+    K = 98       # Strike price
     r = 0.05     # Risk-free rate
     sigma = 0.16  # Volatility
     T = 0.5      # Time to maturity
     dt = 0.0005
     eta1 = 10.0   # Positive jump parameter (> 1)
-    eta2 = 5.0   # Negative jump parameter (> 0)
-    p = 0.4      # Probability of positive jump
-    lambd = 1.0  # Jump intensity
-    M = 100_000    # Number of simulations
+    eta2 = 5.0    # Negative jump parameter (> 0)
+    p = 0.4       # Probability of positive jump
+    lambd = 1.0   # Jump intensity
+    M = 100_000   # Number of simulations
     
     # Price call option
     call_price = kou_option_price_mc(S0, K, r, sigma, T, dt, eta1, eta2, p, lambd, M, OptionType.CALL)
@@ -338,17 +397,17 @@ def test_kou_pricing_mc():
     parity_diff = call_price - put_price - (S0 - pv_strike)
     print(f"Put-call parity difference: {parity_diff:.4f}")
 
-def test_kou_process_risk_neutral():
+def test_kou_process_risk_neutral() -> None:
+    """Test risk-neutral Kou process."""
     dt = 0.001
     S0 = 100     # Initial stock price
-    K = 98      # Strike price
     r = 0.05     # Risk-free rate
     sigma = 0.16  # Volatility
     T = 0.5      # Time to maturity
     eta1 = 10.0   # Positive jump parameter (> 1)
-    eta2 = 5.0   # Negative jump parameter (> 0)
-    p = 0.4      # Probability of positive jump
-    lambd = 1.0  # Jump intensity
+    eta2 = 5.0    # Negative jump parameter (> 0)
+    p = 0.4       # Probability of positive jump
+    lambd = 1.0   # Jump intensity
     M = 10
 
     N = int(T / dt)
@@ -362,7 +421,8 @@ def test_kou_process_risk_neutral():
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
-    plt.plot(t, S, '.', color=colors[i], markersize=2)
+    for i in range(S.shape[1]):
+        plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
     plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
     plt.xlabel('Time')
@@ -371,10 +431,4 @@ def test_kou_process_risk_neutral():
     plt.show()
 
 if __name__ == "__main__":
-    # test_jump_pdf()
-    # print(generate_jump_sizes(0.3, 5, 5, 10, 5))
-    # test_kou_process()
-    # test_kou_pricing()
-    # test_kou_process_risk_neutral()
     test_kou_pricing_mc()
-    
