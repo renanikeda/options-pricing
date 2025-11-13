@@ -266,7 +266,54 @@ def Hh(n: int, x: float) -> float:
     else:
         return (Hh(n-2,x)-x*Hh(n-1,x))/n
 
-def I()
+def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
+    if beta>0 and alpha!=0:
+        suma=0
+        i=0
+        while i<=n:
+            suma=suma+(beta/alpha)**(n-i)*Hh(i,beta*c-delta)
+            i+=1
+        return -(np.exp(alpha*c)/alpha)*suma+(beta/alpha)**(n+1)*(np.sqrt(2*np.pi)/beta)*np.exp((alpha*delta/beta)+(alpha**2/(2*beta**2)))*norm.cdf(-beta*c+delta+alpha/beta)
+    elif beta<0 and alpha<0:
+        suma=0
+        i=0
+        while i<=n:
+            suma=suma+(beta/alpha)**(n-i)*Hh(i,beta*c-delta)
+            i+=1
+        return -(np.exp(alpha*c)/alpha)*suma-(beta/alpha)**(n+1)*(np.sqrt(2*np.pi)/beta)*np.exp((alpha*delta/beta)+(alpha**2/(2*beta**2)))*norm.cdf(beta*c-delta-alpha/beta)
+    else: return 0
+
+def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
+    bound = 10
+    pi0 = np.exp(-lambd * T)
+    n_vals = np.arange(1, bound + 1)
+    pin = np.exp(-lambd * T) * (lambd * T) ** n_vals / np.array([math.factorial(i) for i in n_vals])
+    
+    sump1 = np.zeros(bound)
+    sumq1 = np.zeros(bound)
+
+    for n in range(1, bound + 1):
+        sump2 = np.zeros(n)
+        sumq2 = np.zeros(n)
+        for k in range(1, n + 1):
+            sump2[k - 1] = (
+                P(n, k, p, eta1, eta2)
+                * (sigma * np.sqrt(T) * eta1) ** k
+                * I(k - 1, x - mu * T, -eta1, -1/(sigma * np.sqrt(T)), -sigma * eta1 * np.sqrt(T))
+            )
+            sumq2[k - 1] = (
+                Q(n, k, p, eta1, eta2)
+                * I(k - 1, x - mu * T, eta2, 1 / (sigma * np.sqrt(T)), -sigma * eta2 * np.sqrt(T))
+            )
+        sump1[n - 1] = pin[n - 1] * np.sum(sump2)
+        sumq1[n - 1] = pin[n - 1] * np.sum(sumq2)
+    
+    Y1 = np.exp((sigma * eta1) ** 2 * T / 2) / (sigma * np.sqrt(2 * np.pi * T)) * np.sum(sump1)
+    Y2 = np.exp((sigma * eta2) ** 2 * T / 2) / (sigma * np.sqrt(2 * np.pi * T)) * np.sum(sumq1)
+    Y3 = pi0 * norm.cdf(-(x - mu * T) / (sigma * np.sqrt(T)))
+    
+    Y = Y1 + Y2 + Y3
+    return Y
 
 def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float, dt: float,
                      eta1: float, eta2: float, p: float, lambd: float,  
@@ -289,7 +336,13 @@ def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float, dt: 
     """
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
-    
+    zeta=p*eta1/(eta1-1)+(1-p)*eta2/(eta2+1)-1
+    lam2=lambd*(zeta+1)
+    eta12=eta1-1
+    eta22=eta2+1
+    p2=p/(1+zeta)*eta1/(eta1-1)
+    return S0*Upsilon(r+1/2*sigma**2-lambd*zeta,sigma,lam2,p2,eta12,eta22,math.log(K/S0),T)-K*np.exp(-r*T)*Upsilon(r-1/2*sigma**2-lambd*zeta,sigma,lambd,p,eta1,eta2,math.log(K/S0),T)
+
 
 def test_poisson_process() -> None:
     """Test the Poisson process visualization."""
@@ -349,15 +402,10 @@ def test_kou_pricing() -> None:
     eta2 = 20
     p = 0.25
     lambd = 3
-    t, S = zeta_kou(T, dt, r, sigma, eta1, eta2, p, lambd)
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(t, S, 'r-', linewidth=0.5)
-    plt.title('Kou Jump Diffusion Process')
-    plt.xlabel('Time')
-    plt.ylabel('Stock Price')
-    plt.grid(True, alpha=0.3)
-    plt.show()
+    call_price = kou_option_price(S0, K=100, r=r, sigma=sigma, T=T, dt=dt,
+                            eta1=eta1, eta2=eta2, p=p, lambd=lambd,
+                            option_type=OptionType.CALL)
+    print(f"Call option price: {call_price:.4f}")
 
 def test_kou_pricing_mc() -> None:
     """Test option pricing with Kou model."""
@@ -421,4 +469,5 @@ def test_kou_process_risk_neutral() -> None:
     plt.show()
 
 if __name__ == "__main__":
-    test_kou_pricing_mc()
+    # test_kou_pricing_mc()
+    test_kou_pricing()
