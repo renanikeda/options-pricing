@@ -340,8 +340,10 @@ def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float,
     eta12 = eta1 - 1
     eta22 = eta2 + 1
     p2 = p / (1 + csi) * eta1 / (eta1 - 1)
-
-    return S0 * Upsilon(r + 1/2 * sigma**2 - lambd * csi, sigma, lambd2, p2, eta12, eta22, math.log(K/S0), T) - K * np.exp(-r*T) * Upsilon(r - 1 /2 * sigma**2 - lambd * csi, sigma, lambd, p, eta1, eta2, math.log(K/S0), T)
+    print(Upsilon(x=0, sigma=0.2, T=0.5, mu=0.12, lambd=1, eta1=10, eta2=5, p=0.4))
+    print(Upsilon(x=-0.5, sigma=0.2, T=0.5, mu=0.12, lambd=1, eta1=10, eta2=5, p=0.4))
+    print(Upsilon(x=0.5, sigma=0.2, T=0.5, mu=0.12, lambd=1, eta1=10, eta2=5, p=0.4))
+    return S0 * Upsilon(mu=r + 1/2 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd2, p=p2, eta1=eta12, eta2=eta22, x=math.log(K/S0), T=T) - K * np.exp(-r*T) * Upsilon(mu=r - 1 /2 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd, p=p, eta1=eta1, eta2=eta2, x=math.log(K/S0), T=T)
 
 
 def test_poisson_process() -> None:
