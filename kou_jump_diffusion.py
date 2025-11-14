@@ -244,16 +244,16 @@ def P(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
     result = 0.0
     if k < 1 or n < 1: return 0
     for i in range(k, n):
-        result += binom(n - k - 1, i - k) * binom(n, i) * binom(eta_1, eta_1 + eta_2)**(i - k) * binom(eta_2, eta_1 + eta_2)**(n - i) * (p ** i) * ((1 - p) ** (n - i))
+        result += binom(n - k - 1, i - k) * binom(n, i) * (eta_1 / (eta_1 + eta_2))**(i - k) * (eta_2 / (eta_1 + eta_2))**(n - i) * (p ** i) * ((1 - p) ** (n - i))
     return result
 
 def Q(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
     result = 0.0
     if k < 1 or n < 1: return 0
     for i in range(k, n):
-        result += binom(n - k - 1, i - k) * binom(n, i) * binom(eta_1, eta_1 + eta_2)**(n - 1) * binom(eta_2, eta_1 + eta_2)**(i - k) * (p ** (n - i)) * ((1 - p) ** i)
+        result += binom(n - k - 1, i - k) * binom(n, i) * (eta_1 / (eta_1 + eta_2))**(n - i) * (eta_2 / (eta_1 + eta_2))**(i - k) * (p ** (n - i)) * ((1 - p) ** i)
     return result
-
+ 
 def pi(n: int, lambd: float, T: float) -> float:
     return (np.exp(-lambd*T)*(lambd*T)**n)/math.factorial(n)
 
@@ -284,7 +284,7 @@ def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
     else: return 0
 
 def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
-    bound = 15
+    bound = 10
     pi0 = np.exp(-lambd * T)
     n_vals = np.arange(0, bound)
     pin = np.exp(-lambd * T) * (lambd * T) ** n_vals / np.array([math.factorial(i) for i in n_vals])
