@@ -286,28 +286,28 @@ def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
 def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
     bound = 15
     pi0 = np.exp(-lambd * T)
-    n_vals = np.arange(1, bound + 1)
+    n_vals = np.arange(0, bound)
     pin = np.exp(-lambd * T) * (lambd * T) ** n_vals / np.array([math.factorial(i) for i in n_vals])
     
     sump1 = np.zeros(bound)
     sumq1 = np.zeros(bound)
 
-    for n in range(1, bound):
-        sump2 = np.zeros(n)
-        sumq2 = np.zeros(n)
+    for n in range(0, bound):
+        sump2 = np.zeros(n + 1)
+        sumq2 = np.zeros(n + 1)
         for k in range(1, n + 1):
-            sump2[k - 1] = (
+            sump2[k] = (
                 P(n, k, p, eta1, eta2)
                 * (sigma * np.sqrt(T) * eta1) ** k
                 * I(k - 1, x - mu * T, -eta1, -1/(sigma * np.sqrt(T)), -sigma * eta1 * np.sqrt(T))
             )
-            sumq2[k - 1] = (
+            sumq2[k] = (
                 Q(n, k, p, eta1, eta2)
                 * (sigma * np.sqrt(T) * eta2) ** k
                 * I(k - 1, x - mu * T, eta2, 1 / (sigma * np.sqrt(T)), -sigma * eta2 * np.sqrt(T))
             )
-        sump1[n - 1] = pin[n - 1] * np.sum(sump2)
-        sumq1[n - 1] = pin[n - 1] * np.sum(sumq2)
+        sump1[n] = pin[n] * np.sum(sump2)
+        sumq1[n] = pin[n] * np.sum(sumq2)
     
     Y1 = np.exp(((sigma * eta1) ** 2) * T / 2) / (sigma * np.sqrt(2 * np.pi * T)) * np.sum(sump1)
     Y2 = np.exp(((sigma * eta2) ** 2) * T / 2) / (sigma * np.sqrt(2 * np.pi * T)) * np.sum(sumq1)
