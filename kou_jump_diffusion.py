@@ -243,6 +243,7 @@ def phi(x: float) -> float:
 def P(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
     result = 0.0
     if k < 1 or n < 1: return 0
+    if  k == n: return p**n
     for i in range(k, n):
         result += binom(n - k - 1, i - k) * binom(n, i) * (eta_1 / (eta_1 + eta_2))**(i - k) * (eta_2 / (eta_1 + eta_2))**(n - i) * (p ** i) * ((1 - p) ** (n - i))
     return result
@@ -250,13 +251,11 @@ def P(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
 def Q(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
     result = 0.0
     if k < 1 or n < 1: return 0
+    if  k == n: return (1 - p)**n
     for i in range(k, n):
         result += binom(n - k - 1, i - k) * binom(n, i) * (eta_1 / (eta_1 + eta_2))**(n - i) * (eta_2 / (eta_1 + eta_2))**(i - k) * (p ** (n - i)) * ((1 - p) ** i)
     return result
  
-def pi(n: int, lambd: float, T: float) -> float:
-    return (np.exp(-lambd*T)*(lambd*T)**n)/math.factorial(n)
-
 def Hh(n: int, x: float) -> float:
     if n<-1: return 0
     elif n==-1:
@@ -284,10 +283,9 @@ def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
     else: return 0
 
 def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
-    bound = 10
-    pi0 = np.exp(-lambd * T)
+    bound = 15
     n_vals = np.arange(0, bound)
-    pin = np.exp(-lambd * T) * (lambd * T) ** n_vals / np.array([math.factorial(i) for i in n_vals])
+    pin = np.exp(-lambd * T) * ((lambd * T) ** n_vals) / np.array([math.factorial(i) for i in n_vals])
     
     sump1 = np.zeros(bound)
     sumq1 = np.zeros(bound)
@@ -295,24 +293,23 @@ def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
     for n in range(0, bound):
         sump2 = np.zeros(n + 1)
         sumq2 = np.zeros(n + 1)
-        for k in range(1, n + 1):
+
+        for k in range(1, n+1):
             sump2[k] = (
                 P(n, k, p, eta1, eta2)
-                * (sigma * np.sqrt(T) * eta1) ** k
+                * ((sigma * np.sqrt(T) * eta1) ** k)
                 * I(k - 1, x - mu * T, -eta1, -1/(sigma * np.sqrt(T)), -sigma * eta1 * np.sqrt(T))
             )
             sumq2[k] = (
                 Q(n, k, p, eta1, eta2)
-                * (sigma * np.sqrt(T) * eta2) ** k
-                * I(k - 1, x - mu * T, eta2, 1 / (sigma * np.sqrt(T)), -sigma * eta2 * np.sqrt(T))
+                * ((sigma * np.sqrt(T) * eta2) ** k)
+                * I(k - 1, x - mu * T, eta2, 1/(sigma * np.sqrt(T)), -sigma * eta2 * np.sqrt(T))
             )
         sump1[n] = pin[n] * np.sum(sump2)
         sumq1[n] = pin[n] * np.sum(sumq2)
-    
     Y1 = np.exp(((sigma * eta1) ** 2) * T / 2) / (sigma * np.sqrt(2 * np.pi * T)) * np.sum(sump1)
     Y2 = np.exp(((sigma * eta2) ** 2) * T / 2) / (sigma * np.sqrt(2 * np.pi * T)) * np.sum(sumq1)
-    Y3 = pi0 * norm.cdf(-(x - mu * T) / (sigma * np.sqrt(T)))
-    
+    Y3 = pin[0] * norm.cdf(-(x - mu * T) / (sigma * np.sqrt(T)))
     Y = Y1 + Y2 + Y3
     return Y
 
@@ -340,10 +337,8 @@ def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float,
     eta12 = eta1 - 1
     eta22 = eta2 + 1
     p2 = p / (1 + csi) * eta1 / (eta1 - 1)
-    print(Upsilon(x=0, sigma=0.2, T=0.5, mu=0.12, lambd=1, eta1=10, eta2=5, p=0.4))
-    print(Upsilon(x=-0.5, sigma=0.2, T=0.5, mu=0.12, lambd=1, eta1=10, eta2=5, p=0.4))
-    print(Upsilon(x=0.5, sigma=0.2, T=0.5, mu=0.12, lambd=1, eta1=10, eta2=5, p=0.4))
-    return S0 * Upsilon(mu=r + 1/2 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd2, p=p2, eta1=eta12, eta2=eta22, x=math.log(K/S0), T=T) - K * np.exp(-r*T) * Upsilon(mu=r - 1 /2 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd, p=p, eta1=eta1, eta2=eta2, x=math.log(K/S0), T=T)
+
+    return S0 * Upsilon(mu=r + 0.5 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd2, p=p2, eta1=eta12, eta2=eta22, x=math.log(K/S0), T=T) - K * np.exp(-r*T) * Upsilon(mu=r - 0.5 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd, p=p, eta1=eta1, eta2=eta2, x=math.log(K/S0), T=T)
 
 
 def test_poisson_process() -> None:
@@ -448,7 +443,7 @@ def test_kou_process_risk_neutral() -> None:
     eta2 = 5.0    # Negative jump parameter (> 0)
     p = 0.4       # Probability of positive jump
     lambd = 1.0   # Jump intensity
-    M = 10
+    M = 20
 
     N = int(T / dt)
     t = np.linspace(0, T, N + 1)
