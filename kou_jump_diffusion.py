@@ -257,30 +257,30 @@ def Q(n: int, k: int, p: float, eta_1: float, eta_2: float) -> float:
     return result
  
 def Hh(n: int, x: float) -> float:
-    if n<-1: return 0
-    elif n==-1:
+    if n < -1: return 0
+    elif n == -1:
         return np.exp(-x**2/2)
-    elif n==0:
+    elif n == 0:
         return math.sqrt(2*np.pi)*norm.cdf(-x)
     else:
         return (Hh(n-2,x)-x*Hh(n-1,x))/n
 
 def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
-    if beta>0 and alpha!=0:
-        suma=0
-        i=0
-        while i<=n:
-            suma=suma+(beta/alpha)**(n-i)*Hh(i,beta*c-delta)
-            i+=1
+    if beta > 0 and alpha != 0:
+        suma = 0
+        for i in range(n + 1):
+            suma += (beta/alpha)**(n-i)*Hh(i,beta*c-delta)
+        
         return -(np.exp(alpha*c)/alpha)*suma+(beta/alpha)**(n+1)*(np.sqrt(2*np.pi)/beta)*np.exp((alpha*delta/beta)+(alpha**2/(2*beta**2)))*norm.cdf(-beta*c+delta+alpha/beta)
-    elif beta<0 and alpha<0:
-        suma=0
-        i=0
-        while i<=n:
-            suma=suma+(beta/alpha)**(n-i)*Hh(i,beta*c-delta)
-            i+=1
+    
+    elif beta < 0 and alpha < 0:
+        suma = 0
+        for i in range(n + 1):
+            suma += (beta/alpha)**(n-i)*Hh(i,beta*c-delta)
+
         return -(np.exp(alpha*c)/alpha)*suma-(beta/alpha)**(n+1)*(np.sqrt(2*np.pi)/beta)*np.exp((alpha*delta/beta)+(alpha**2/(2*beta**2)))*norm.cdf(beta*c-delta-alpha/beta)
-    else: return 0
+    else:
+        return 0
 
 def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
     bound = 15
