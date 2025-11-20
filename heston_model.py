@@ -27,9 +27,6 @@ def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float,
     t = np.linspace(0, T, N + 1)
     
     # Generate correlated Brownian motions
-    mu = np.array([0, 0])
-    cov = np.array([[1, rho], [rho, 1]])
-    # Z = np.random.multivariate_normal(mu, cov, (N + 1, M))
     _, dW = cov_brownian_motion_diff(T, dt, rho, 2, M)
     
     S = np.full(shape=(N+1, M), fill_value=float(S0))
