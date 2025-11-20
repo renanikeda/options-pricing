@@ -147,7 +147,7 @@ def kou_process(S0: float, mu: float, sigma: float, T: float, dt: float,
 
     log_S = np.zeros((N+1, M))
     t, W = brownian_motion(T, dt, M)
-    log_S = np.log(S0) + mu*time_matrix + sigma*W + np.cumsum(generated_jumps_matrix, axis=0)
+    log_S = np.log(S0) + (mu - 0.5*sigma**2)*time_matrix + sigma*W + np.cumsum(generated_jumps_matrix, axis=0)
 
     return t, np.exp(log_S)
 
@@ -216,11 +216,12 @@ def kou_option_price_mc(S0: float, K: float, r: float, sigma: float, T: float, d
     Returns:
     float: option price
     """
+
     payoffs = np.zeros(M)
    
     # Generate stock price path
     csi = p * eta1 / (eta1 - 1.0) + (1.0 - p) * eta2 / (eta2 + 1.0) - 1.0
-    mu_risk_neutral = r - 0.5*sigma**2 - lambd * csi
+    mu_risk_neutral = r - lambd * csi
 
     _, S_path = kou_process(S0, mu_risk_neutral, sigma, T, dt, eta1, eta2, p, lambd, M)
     S_T = S_path[-1, :]  # Final stock price
@@ -394,7 +395,7 @@ def test_kou_pricing() -> None:
     K = 98       # Strike price
     r = 0.05     # Risk-free rate
     sigma = 0.16  # Volatility
-    T = 0.5      # Time to maturity
+    T = 0.5     # Time to maturity
     eta1 = 10.0   # Positive jump parameter (> 1)
     eta2 = 5.0    # Negative jump parameter (> 0)
     p = 0.4       # Probability of positive jump
@@ -412,7 +413,7 @@ def test_kou_pricing_mc() -> None:
     r = 0.05     # Risk-free rate
     sigma = 0.16  # Volatility
     T = 0.5      # Time to maturity
-    dt = 0.0005
+    dt = 0.005
     eta1 = 10.0   # Positive jump parameter (> 1)
     eta2 = 5.0    # Negative jump parameter (> 0)
     p = 0.4       # Probability of positive jump
@@ -466,5 +467,5 @@ def test_kou_process_risk_neutral() -> None:
     plt.show()
 
 if __name__ == "__main__":
-    # test_kou_pricing_mc()
-    test_kou_pricing()
+    test_kou_pricing_mc()
+    # test_kou_pricing()
