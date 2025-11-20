@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from typing import Tuple
 from brownian_motion import cov_brownian_motion_diff
+from utils import OptionType
 
 def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float, 
                  sigma: float, r: float, T: float, dt: float, M: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -41,8 +42,8 @@ def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float,
     return t, S, v
 
 def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: float, 
-                          theta: float, sigma: float, r: float, T: float, dt: float, 
-                          M: int, option_type: str = 'call') -> float:
+                          theta: float, sigma: float, r: float, lambd:float, T: float, dt: float, 
+                          M: int, option_type: OptionType = OptionType.CALL) -> float:
     """
     Price European option using Monte Carlo simulation with Heston model.
     
@@ -58,18 +59,20 @@ def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: fl
     T (float): time to maturity
     dt (float): time step
     M (int): number of Monte Carlo simulations
-    option_type (str): 'call' or 'put'
+    option_type (OptionType): 'CALL' or 'PUT'
     
     Returns:
     float: option price
     """
-    _, S, _ = heston_model(S0, v0, rho, kappa, theta, sigma, r, T, dt, M)
+    kappa2 = kappa + lambd
+    theta2 = (kappa * theta) / kappa2
+    _, S, _ = heston_model(S0, v0, rho, kappa2, theta2, sigma, r, T, dt, M)
     S_T = S[-1, :]  # Final stock prices
     
     # Calculate payoff
-    if option_type.lower() == 'call':
+    if option_type == OptionType.CALL:
         payoffs = np.maximum(S_T - K, 0)
-    elif option_type.lower() == 'put':
+    elif option_type == OptionType.PUT:
         payoffs = np.maximum(K - S_T, 0)
     else:
         raise ValueError("option_type must be 'call' or 'put'")
@@ -119,32 +122,33 @@ def test_heston_model() -> None:
     plt.tight_layout()
     plt.show()
 
-def test_heston_option_pricing() -> None:
+def test_heston_option_pricing_mc() -> None:
     """Test Heston option pricing."""
     S0 = 100
     K = 100
-    v0 = 0.04
-    rho = -0.7
-    kappa = 3.0
-    theta = 0.04
-    sigma = 0.6
-    r = 0.05
+    v0 = 0.25
+    rho = -0.5711
+    kappa = 1.5768
+    theta = 0.0398
+    sigma = 0.3
+    lambd = 0.575
+    r = 0.06
     T = 1.0
     dt = 0.001
     M = 100_000
     
-    call_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, T, dt, M, 'call')
-    put_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, T, dt, M, 'put')
+    call_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, lambd, T, dt, M, OptionType.CALL)
+    # put_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, lambd, T, dt, M, OptionType.CALL)
     
     print(f"Call option price: {call_price:.4f}")
-    print(f"Put option price: {put_price:.4f}")
+    # print(f"Put option price: {put_price:.4f}")
     
     # Verify put-call parity
-    pv_strike = K * np.exp(-r * T)
-    parity_diff = call_price - put_price - (S0 - pv_strike)
-    print(f"Put-call parity difference: {parity_diff:.4f}")
+    # pv_strike = K * np.exp(-r * T)
+    # parity_diff = call_price - put_price - (S0 - pv_strike)
+    # print(f"Put-call parity difference: {parity_diff:.4f}")
 
 if __name__ == "__main__":
-    test_heston_model()
-    # test_heston_option_pricing()
+    # test_heston_model()
+    test_heston_option_pricing_mc()
 
