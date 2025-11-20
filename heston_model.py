@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from typing import Tuple
+from brownian_motion import cov_brownian_motion_diff
 
 def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float, 
                  sigma: float, r: float, T: float, dt: float, M: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -28,7 +29,8 @@ def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float,
     # Generate correlated Brownian motions
     mu = np.array([0, 0])
     cov = np.array([[1, rho], [rho, 1]])
-    Z = np.random.multivariate_normal(mu, cov, (N, M))
+    # Z = np.random.multivariate_normal(mu, cov, (N + 1, M))
+    _, dW = cov_brownian_motion_diff(T, dt, rho, 2, M)
     
     S = np.full(shape=(N+1, M), fill_value=float(S0))
     v = np.full(shape=(N+1, M), fill_value=float(v0))
@@ -36,8 +38,8 @@ def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float,
     for i in range(1, N+1):
         v_pos = np.maximum(v[i-1], 0)
 
-        S[i] = S[i-1] * np.exp((r - 0.5*v_pos)*dt + np.sqrt(v_pos * dt) * Z[i-1, :, 0])
-        v[i] = np.maximum(v[i-1] + kappa*(theta - v_pos)*dt + sigma*np.sqrt(v_pos*dt)*Z[i-1, :, 1], 0)
+        S[i] = S[i-1] * np.exp((r - 0.5*v_pos)*dt + np.sqrt(v_pos) * dW[i-1, :, 0])
+        v[i] = np.maximum(v[i-1] + kappa*(theta - v_pos)*dt + sigma*np.sqrt(v_pos)*dW[i-1, :, 1], 0)
     
     return t, S, v
 
