@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from typing import Tuple
 from brownian_motion import cov_brownian_motion_diff
 from utils import OptionType
+from scipy.integrate import quad
 
 def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float, 
                  sigma: float, r: float, T: float, dt: float, M: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -81,6 +82,112 @@ def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: fl
     option_price = np.exp(-r * T) * np.mean(payoffs)
     return option_price
 
+
+def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, theta: float, 
+                           sigma: float, rho: float, lambd: float, T: float, r: float) -> complex:
+    """
+    Calculate the characteristic function for the Heston model.
+    
+    The characteristic function is used in the semi-analytical pricing formula
+    for European options under the Heston stochastic volatility model.
+    
+    Parameters:
+    phi (complex): frequency parameter in the Fourier transform
+    S0 (float): initial stock price
+    v0 (float): initial variance
+    kappa (float): mean reversion speed
+    theta (float): long-term variance mean
+    sigma (float): volatility of variance (vol of vol)
+    rho (float): correlation between stock and variance Brownian motions
+    lambd (float): risk premium parameter
+    T (float): time to maturity
+    r (float): risk-free rate
+    
+    Returns:
+    complex: value of the characteristic function at phi
+    """
+    a = kappa * theta
+    b = kappa + lambd
+    rspi = rho * sigma * phi * 1j
+
+    d = np.sqrt((rho * sigma * phi * 1j - b)**2 + (phi * 1j + phi**2) * sigma**2)
+    g = (b - rspi + d)/(b - rspi - d)
+
+    exp1 = np.exp(r * phi * 1j * T)
+    term2 = S0**(phi * 1j) * ((1 - g*np.exp(d*T))/(1 - g))**(-2*a/sigma**2)
+    exp2 = np.exp(a*T*(b - rspi + d)/sigma**2 + v0*(b - rspi + d)*((1 - np.exp(d*T))/(1 - g*np.exp(d*T)))/sigma**2)
+
+    return exp1 * term2 * exp2
+
+def integrand(phi: float, S0: float, v0: float, K: float, kappa: float, theta: float, 
+             sigma: float, rho: float, lambd: float, tau: float, r: float) -> complex:
+    """
+    Calculate the integrand for the Heston option pricing formula.
+    
+    This function computes the integrand used in the Fourier inversion
+    to obtain the option price from the characteristic function.
+    
+    Parameters:
+    phi (float): integration variable (frequency)
+    S0 (float): initial stock price
+    v0 (float): initial variance
+    K (float): strike price
+    kappa (float): mean reversion speed
+    theta (float): long-term variance mean
+    sigma (float): volatility of variance (vol of vol)
+    rho (float): correlation between stock and variance Brownian motions
+    lambd (float): risk premium parameter
+    tau (float): time to maturity
+    r (float): risk-free rate
+    
+    Returns:
+    complex: value of the integrand at phi
+    """
+    args = (S0, v0, kappa, theta, sigma, rho, lambd, tau, r)
+    numerator = np.exp(r*tau)*characteristic_function(phi-1j, *args) - K*characteristic_function(phi, *args)
+    denominator = 1j*phi*K**(1j*phi)
+    return numerator/denominator
+
+def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float, 
+                sigma: float, rho: float, lambd: float, tau: float, r: float) -> float:
+    """
+    Calculate European call option price using the Heston model semi-analytical formula.
+    
+    This function uses Fourier inversion to compute the option price from the
+    characteristic function of the Heston model. The implementation follows the
+    original Heston (1993) formulation.
+    
+    Parameters:
+    S0 (float): initial stock price
+    K (float): strike price
+    v0 (float): initial variance
+    kappa (float): mean reversion speed
+    theta (float): long-term variance mean
+    sigma (float): volatility of variance (vol of vol)
+    rho (float): correlation between stock and variance Brownian motions
+    lambd (float): risk premium parameter
+    tau (float): time to maturity
+    r (float): risk-free rate
+    
+    Returns:
+    float: European call option price
+    
+    Notes:
+    - This formula is valid for European call options
+    - Put prices can be obtained via put-call parity
+    - The integration is performed from 0 to 100 (approximating infinity)
+    
+    References:
+    Heston, S. L. (1993). "A Closed-Form Solution for Options with 
+    Stochastic Volatility with Applications to Bond and Currency Options"
+    """
+    args = (S0, v0, K, kappa, theta, sigma, rho, lambd, tau, r)
+
+    # real_integral, err = np.real( quad(integrand, 0, 100, args=args))
+    real_integral, err = quad(lambda phi: np.real(integrand(phi, *args)), 0, 100)
+
+    return (S0 - K*np.exp(-r*tau))/2 + real_integral/np.pi
+
 def test_heston_model() -> None:
     """Test Heston model visualization."""
     S0 = 100
@@ -148,7 +255,26 @@ def test_heston_option_pricing_mc() -> None:
     # parity_diff = call_price - put_price - (S0 - pv_strike)
     # print(f"Put-call parity difference: {parity_diff:.4f}")
 
+def test_heston_option_pricing() -> None:
+    """Test Heston option pricing."""
+    S0 = 100
+    K = 100
+    v0 = 0.1
+    rho = -0.5711
+    kappa = 1.5768
+    theta = 0.0398
+    sigma = 0.3
+    lambd = 0.575
+    r = 0.03
+    T = 1.0
+    
+    call_price = heston_price( S0, K, v0, kappa, theta, sigma, rho, lambd, T, r )
+    
+    print(f"Call option price: {call_price:.4f}")
+
+
 if __name__ == "__main__":
     # test_heston_model()
-    test_heston_option_pricing_mc()
+    # test_heston_option_pricing_mc()
+    test_heston_option_pricing()
 
