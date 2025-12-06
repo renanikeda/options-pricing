@@ -187,7 +187,7 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
 
 interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
 date_ini = '2025-10-01'
-date_end = '2025-10-25'
+date_end = '2025-12-01'
 output = 'Histórico B3'
 
 codes = list(filter(lambda code: not  os.path.exists(f'{output}/{code.replace('PR', 'Negociações 20')}.csv'), gen_date_list_code(date_ini, date_end)))

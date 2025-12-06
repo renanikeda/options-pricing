@@ -26,4 +26,4 @@ def get_hist_options_price(session: requests.Session, option: str):
   return response.json().get('chartData')
 
 with requests.Session() as session:
-  print(get_hist_options_price(session, 'IBOVV139'))
+  print(get_hist_options_price(session, 'VALEN515'))
