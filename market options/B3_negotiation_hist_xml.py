@@ -184,29 +184,48 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
         print("No CSV files found or all files failed to read.")
         return pd.DataFrame()
 
-
-interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
-date_ini = '2025-10-01'
-date_end = '2025-12-01'
-output = 'Histórico B3'
-
-codes = list(filter(lambda code: not  os.path.exists(f'{output}/{code.replace('PR', 'Negociações 20')}.csv'), gen_date_list_code(date_ini, date_end)))
-
-print(codes)
-
-for code in codes:
+def get_negotiation_treated(database: str, output: str = '.'):
+    interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
+    ticker_regex = '|'.join(interested_tickers)
+    code = "PR" + database[2:]
     zip_path = download_and_save_zipfile(code)
     extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
     print(extracted_files)
-    if not extracted_files:
-        continue
+    result = pd.DataFrame()
+    if not extracted_files: 
+        return result 
     file = extracted_files[-1]
     if file.endswith('.xml'):
-        df = parse_xml_to_df(file)
-        date = code.replace('PR', '20')
-        output_file = f"{output}/Negociações {date}.csv"
-        df.to_csv(output_file, index=False)
+        result = parse_xml_to_df(file)   
     shutil.rmtree('/'.join(file.split('/')[:-1]))
+    result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
+    result.dropna(subset=['TradeAmount'], inplace=True)
+    return result
 
-output_path = 'interested_merged_deals.csv'
-merge_all_deals(output, output_path, '|'.join(interested_tickers))
+
+if __name__ == "__main__":
+    interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
+    date_ini = '2025-10-01'
+    date_end = '2025-10-01'
+    output = 'Histórico B3'
+
+    codes = list(filter(lambda code: not  os.path.exists(f'{output}/{code.replace('PR', 'Negociações 20')}.csv'), gen_date_list_code(date_ini, date_end)))
+
+    print(codes)
+
+    for code in codes:
+        zip_path = download_and_save_zipfile(code)
+        extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
+        print(extracted_files)
+        if not extracted_files:
+            continue
+        file = extracted_files[-1]
+        if file.endswith('.xml'):
+            df_negotiation = parse_xml_to_df(file)
+            date = code.replace('PR', '20')
+            output_file = f"{output}/Negociações {date}.csv"
+            df_negotiation.to_csv(output_file, index=False)
+        shutil.rmtree('/'.join(file.split('/')[:-1]))
+
+    output_path = 'interested_merged_deals.csv'
+    merge_all_deals(output, output_path, '|'.join(interested_tickers))

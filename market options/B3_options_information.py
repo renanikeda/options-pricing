@@ -23,7 +23,7 @@ def get_options_info(date: str, tipo: str = 'Empresa'):
     print(f"Error fetching options info for date {date}: {e}")
     return None
 
-def treat_options_info(dict_info: Dict[str, List[Dict]]):
+def treat_options_info(dict_info: Dict[str, List[Dict]], database: str):
   interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA.*']
   result_list = []
   if isinstance(dict_info, dict):
@@ -38,6 +38,16 @@ def treat_options_info(dict_info: Dict[str, List[Dict]]):
   df['Maturity Date'] = pd.to_datetime(df['Maturity Date'], format='%Y%m%d').dt.strftime('%Y-%m-%d')
   df = df[df['Ticker'].str.contains('|'.join(interested_tickers), regex=True)] 
   return df 
+
+def get_options_info_treated(database: str):
+  final_df_info = pd.DataFrame()
+  for tipo in ['Empresa', 'Indice']:
+    dict_info = get_options_info(database, tipo)
+    if dict_info is None: continue
+    df_info = treat_options_info(dict_info, database)
+    final_df_info = pd.concat([final_df_info, df_info], ignore_index=True)  
+  
+  return final_df_info
 
 def merge_all_deals(root_path: str, output_path: str):
     all_files = [os.path.join(root_path, filename) for filename in os.listdir(root_path) if filename.endswith('.csv') and 'Infos' in filename]
@@ -72,23 +82,23 @@ def gen_date_list(ini_date: str, end_date: str):
 
   return date_list
 
+if __name__ == "__main__":
+  date_ini = '2025-10-01'
+  date_end = '2025-12-01'
+  # database = '20200901'
+  output = 'Histórico B3'
 
-date_ini = '2025-10-01'
-date_end = '2025-12-01'
-# database = '20200901'
-output = 'Histórico B3'
+  databases = list(filter(lambda database: not  os.path.exists(f'{output}/Infos {database}.csv'), gen_date_list(date_ini, date_end)))
 
-databases = list(filter(lambda database: not  os.path.exists(f'{output}/Infos {database}.csv'), gen_date_list(date_ini, date_end)))
+  for database in databases:
+    final_df_info = pd.DataFrame()
+    for tipo in ['Empresa', 'Indice']:
+      dict_info = get_options_info(database, tipo)
+      if dict_info is None: continue
+      df_info = treat_options_info(dict_info, database)
+      final_df_info = pd.concat([final_df_info, df_info], ignore_index=True)
+    if not final_df_info.empty: final_df_info.to_csv(f'{output}/Infos {database}.csv', index=False)
 
-for database in databases:
-  final_df_info = pd.DataFrame()
-  for tipo in ['Empresa', 'Indice']:
-    dict_info = get_options_info(database, tipo)
-    if dict_info is None: continue
-    df_info = treat_options_info(dict_info)
-    final_df_info = pd.concat([final_df_info, df_info], ignore_index=True)
-  if not final_df_info.empty: final_df_info.to_csv(f'{output}/Infos {database}.csv', index=False)
-
-merge_all_deals(output, 'b3_options_info.csv')
+  merge_all_deals(output, 'b3_options_info.csv')
 
 
