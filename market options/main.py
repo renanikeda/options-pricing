@@ -22,8 +22,8 @@ def gen_date_list(ini_date: str, end_date: str):
 
 if __name__ == "__main__":
 
-  date_ini = '2020-07-01'
-  date_end = '2021-01-01'
+  date_ini = '2024-01-01'
+  date_end = '2025-12-01'
   # database = '20200901'
   output = 'Histórico B3'
 

@@ -1,6 +1,6 @@
 
 from enum import Enum
-
+from datetime import datetime, timedelta
 class OptionType(Enum):
     CALL = "call"
     PUT = "put"
@@ -16,3 +16,18 @@ def classify_option(ticker: str):
         raise ValueError("Ticker does not specify option type.")
 
 colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
+
+options_data = lambda database: f'../market options/Histórico B3/Negociações {database}.csv'
+
+
+def gen_date_list(ini_date: str, end_date: str):
+  start_date = datetime.strptime(ini_date, '%Y-%m-%d')
+  end_date = datetime.strptime(end_date, '%Y-%m-%d')
+  delta = timedelta(days=1)
+
+  date_list = []
+  while start_date <= end_date:
+    date_list.append(start_date.strftime('%Y%m%d'))
+    start_date += delta
+
+  return date_list

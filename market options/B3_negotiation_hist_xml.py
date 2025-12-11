@@ -185,23 +185,25 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
         return pd.DataFrame()
 
 def get_negotiation_treated(database: str, output: str = '.'):
-    interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
-    ticker_regex = '|'.join(interested_tickers)
-    code = "PR" + database[2:]
-    zip_path = download_and_save_zipfile(code)
-    extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
-    print(extracted_files)
-    result = pd.DataFrame()
-    if not extracted_files: 
-        return result 
-    file = extracted_files[-1]
-    if file.endswith('.xml'):
-        result = parse_xml_to_df(file)   
-    shutil.rmtree('/'.join(file.split('/')[:-1]))
-    result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
-    result.dropna(subset=['TradeAmount'], inplace=True)
-    return result
-
+    try:
+        interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
+        ticker_regex = '|'.join(interested_tickers)
+        code = "PR" + database[2:]
+        zip_path = download_and_save_zipfile(code)
+        extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
+        print(extracted_files)
+        result = pd.DataFrame()
+        if not extracted_files: 
+            return result 
+        file = extracted_files[-1]
+        if file.endswith('.xml'):
+            result = parse_xml_to_df(file)   
+        shutil.rmtree('/'.join(file.split('/')[:-1]))
+        result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
+        result.dropna(subset=['TradeAmount'], inplace=True)
+        return result
+    except:
+        return pd.DataFrame()
 
 if __name__ == "__main__":
     interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
