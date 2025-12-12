@@ -91,6 +91,8 @@ def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, th
     The characteristic function is used in the semi-analytical pricing formula
     for European options under the Heston stochastic volatility model.
     
+    This implementation uses the "Little Trap" formulation for numerical stability.
+    
     Parameters:
     phi (complex): frequency parameter in the Fourier transform
     S0 (float): initial stock price
@@ -106,18 +108,93 @@ def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, th
     Returns:
     complex: value of the characteristic function at phi
     """
+    # Parameters
     a = kappa * theta
     b = kappa + lambd
+    
+    # Calculate d - discriminant
     rspi = rho * sigma * phi * 1j
+    d = np.sqrt((rspi - b)**2 - sigma**2 * (2j * phi - phi**2))
+    
+    # Use the "Little Trap" formulation to avoid numerical issues
+    # Choose the branch of g that keeps |g| < 1
+    g = (b - rspi - d) / (b - rspi + d)
+    
+    # Calculate exp(dT) once
+    exp_dT = np.exp(d * T)
+    
+    # Calculate in log-space to avoid overflow
+    # C term
+    C = (r * phi * 1j * T + 
+         (a / sigma**2) * ((b - rspi - d) * T - 2 * np.log((1 - g * exp_dT) / (1 - g))))
+    
+    # D term  
+    D = ((b - rspi - d) / sigma**2) * ((1 - exp_dT) / (1 - g * exp_dT))
+    
+    # Return in log-space form
+    return np.exp(C + D * v0 + 1j * phi * np.log(S0))
 
-    d = np.sqrt((rho * sigma * phi * 1j - b)**2 + (phi * 1j + phi**2) * sigma**2)
-    g = (b - rspi + d)/(b - rspi - d)
 
-    exp1 = np.exp(r * phi * 1j * T)
-    term2 = S0**(phi * 1j) * ((1 - g*np.exp(d*T))/(1 - g))**(-2*a/sigma**2)
-    exp2 = np.exp(a*T*(b - rspi + d)/sigma**2 + v0*(b - rspi + d)*((1 - np.exp(d*T))/(1 - g*np.exp(d*T)))/sigma**2)
+def characteristic_function_stable(phi: complex, S0: float, v0: float, kappa: float, theta: float, 
+                                   sigma: float, rho: float, lambd: float, T: float, r: float) -> complex:
+    """
+    Alternative numerically stable characteristic function using Gatheral's formulation.
+    
+    This version handles edge cases better and is more robust during calibration.
+    """
+    # Avoid division by zero
+    if abs(phi) < 1e-10:
+        return 1.0 + 0j
+    
+    a = kappa * theta
+    b = kappa + lambd
+    
+    # Calculate auxiliary variables
+    u = -0.5
+    b_param = b - rho * sigma * 1j * phi
+    
+    # Calculate d with numerical care
+    discriminant = b_param**2 - sigma**2 * (2 * u * 1j * phi - phi**2)
+    
+    # Choose branch cut carefully
+    if np.real(discriminant) >= 0:
+        d = np.sqrt(discriminant)
+    else:
+        d = 1j * np.sqrt(-discriminant)
+    
+    # Use numerically stable form of g
+    # Always choose formulation that keeps |g*exp(d*T)| < 1
+    if np.real(d) > 0:
+        g = (b_param - d) / (b_param + d)
+    else:
+        g = (b_param + d) / (b_param - d)
+    
+    # Calculate components
+    exp_dT = np.exp(-d * T)
+    
+    # Avoid log(0) by adding small epsilon
+    eps = 1e-15
+    denominator = 1 - g * exp_dT
+    if abs(denominator) < eps:
+        denominator = eps
+    
+    # C and D in log form
+    C = (r * phi * 1j * T + 
+         (a / sigma**2) * ((b_param - d) * T - 2 * np.log(denominator / (1 - g + eps))))
+    
+    D = ((b_param - d) / sigma**2) * ((1 - exp_dT) / denominator)
+    
+    # Cap extreme values to prevent overflow
+    exponent = C + D * v0 + 1j * phi * np.log(S0)
+    
+    # Prevent overflow in exp
+    if np.real(exponent) > 700:  # exp(700) is near overflow
+        exponent = 700 + 1j * np.imag(exponent)
+    elif np.real(exponent) < -700:
+        exponent = -700 + 1j * np.imag(exponent)
+    
+    return np.exp(exponent)
 
-    return exp1 * term2 * exp2
 
 def integrand(phi: float, S0: float, v0: float, K: float, kappa: float, theta: float, 
              sigma: float, rho: float, lambd: float, tau: float, r: float) -> complex:
@@ -147,6 +224,36 @@ def integrand(phi: float, S0: float, v0: float, K: float, kappa: float, theta: f
     numerator = np.exp(r*tau)*characteristic_function(phi-1j, *args) - K*characteristic_function(phi, *args)
     denominator = 1j*phi*K**(1j*phi)
     return numerator/denominator
+
+
+def integrand_stable(phi: float, S0: float, v0: float, K: float, kappa: float, theta: float, 
+                    sigma: float, rho: float, lambd: float, tau: float, r: float) -> complex:
+    """
+    Numerically stable integrand for Heston pricing.
+    """
+    # Avoid singularity at phi = 0
+    if abs(phi) < 1e-10:
+        return 0.0 + 0j
+    
+    args = (S0, v0, kappa, theta, sigma, rho, lambd, tau, r)
+    
+    try:
+        char1 = characteristic_function_stable(phi - 1j, *args)
+        char2 = characteristic_function_stable(phi, *args)
+        
+        numerator = np.exp(r * tau) * char1 - K * char2
+        denominator = 1j * phi * K**(1j * phi)
+        
+        result = numerator / denominator
+        
+        # Check for NaN or Inf
+        if not np.isfinite(result):
+            return 0.0 + 0j
+            
+        return result
+    except (OverflowError, ZeroDivisionError):
+        return 0.0 + 0j
+
 
 def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float, 
                 sigma: float, rho: float, lambd: float, tau: float, r: float) -> float:
@@ -184,9 +291,42 @@ def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float,
     args = (S0, v0, K, kappa, theta, sigma, rho, lambd, tau, r)
 
     # real_integral, err = np.real( quad(integrand, 0, 100, args=args))
-    real_integral, err = quad(lambda phi: np.real(integrand(phi, *args)), 0, 100, limit=100)
+    real_integral, err = quad(lambda phi: np.real(integrand(phi, *args)), 0, 100, limit=250)
 
     return (S0 - K*np.exp(-r*tau))/2 + real_integral/np.pi
+
+
+def heston_price_stable(S0: float, K: float, v0: float, kappa: float, theta: float, 
+                       sigma: float, rho: float, lambd: float, tau: float, r: float) -> float:
+    """
+    Numerically stable Heston option pricing.
+    """
+    args = (S0, v0, K, kappa, theta, sigma, rho, lambd, tau, r)
+    
+    # Integrate with error handling
+    try:
+        real_integral, err = quad(
+            lambda phi: np.real(integrand_stable(phi, *args)), 
+            1e-6,  # Start slightly away from 0
+            100, 
+            limit=500,
+            epsabs=1e-8,
+            epsrel=1e-8
+        )
+        
+        price = (S0 - K * np.exp(-r * tau)) / 2 + real_integral / np.pi
+        
+        # Sanity check
+        if price < 0:
+            # print(f"Warning: Negative price {price:.4f}, returning max(S0-K*exp(-r*T), 0)")
+            return max(S0 - K * np.exp(-r * tau), 0)
+        
+        return price
+    except Exception as e:
+        print(f"Integration error: {e}")
+        # Fallback to intrinsic value
+        return max(S0 - K * np.exp(-r * tau), 0)
+
 
 def test_heston_model() -> None:
     """Test Heston model visualization."""

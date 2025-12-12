@@ -31,3 +31,8 @@ def gen_date_list(ini_date: str, end_date: str):
     start_date += delta
 
   return date_list
+
+def ndays(database:str, ndays: int):
+    start_date = datetime.strptime(database, '%Y-%m-%d')
+
+    return (start_date + timedelta(days=ndays)).strftime('%Y-%m-%d')

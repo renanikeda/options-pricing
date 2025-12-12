@@ -1,9 +1,9 @@
 from scipy.optimize import minimize
 from functools import partial
 import numpy as np
-from heston_model import heston_price
+from heston_model import heston_price, heston_price_stable
 import pandas as pd
-from utils import options_data, gen_date_list, classify_option , OptionType
+from utils import options_data, gen_date_list, classify_option , OptionType, ndays
 from typing import List, Dict, Callable
 from datetime import datetime
 import random
@@ -117,55 +117,52 @@ def save_params(model: str, database: str, params: Dict):
     with open("calibrated_params.json", "w") as f:
         json.dump(existed_params, f, indent=2)    
 
-def calibrate_heston_model():
+
+def validate_heston_model(database: str, _ndays: int = 5):
+    params = load_params("heston", database)
+    data_end = ndays(database, _ndays)
+    options_b3 = get_option_data("VALE", database, data_end)
+    asset_prices = get_asset_prices("VALE3", database, data_end)
+    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
+
+    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    listified_model = listify_model(heston_price_stable, market_params, list(params.keys()))
+    sqr_err = squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
+    print(f'Squared error for Heston model on {database} to {data_end} with params {params}: {sqr_err}')
+
+def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
     r = 0.10
 
     params = {
-        "v0": {"x0": 0.1, "limits": [1e-3,0.1]},
+        "v0": {"x0": 0.1, "limits": [1e-3,0.5]},
         "kappa": {"x0": 3, "limits": [1e-3,5]},
-        "theta": {"x0": 0.05, "limits": [1e-3,0.1]},
-        "sigma": {"x0": 0.3, "limits": [1e-2,1]},
-        "rho": {"x0": -0.8, "limits": [-1,0]},
+        "theta": {"x0": 0.05, "limits": [1e-3,0.5]},
+        "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
+        "rho": {"x0": -0.8, "limits": [-1,1]},
         "lambd": {"x0": 0.03, "limits": [-1,1]},
     }
+    data_ini = ndays(database, -1*_ndays)
+    print(data_ini, database)
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
-    options_b3 = get_option_data("VALE", "2020-09-03", "2020-09-10")
-    asset_prices = get_asset_prices("VALE3", "2020-09-03", "2020-09-10")
+    options_b3 = get_option_data("VALE", data_ini, database)
+    asset_prices = get_asset_prices("VALE3", data_ini, database)
     options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
 
-    # asset_prices = options_full_data['Asset Price'].values
-    # strikes = options_full_data['Strike'].values
-    # maturities = days_to_maturity(options_full_data['Data Base'].tolist(), options_full_data['Maturity Date'].tolist())
     prices = options_full_data['LastPrice'].values
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print(market_params[:5])
 
-    heston_model_listified = listify_model(heston_price, market_params, list(params.keys()))
+    heston_model_listified = listify_model(heston_price_stable, market_params, list(params.keys()))
     result = minimize(partial(squared_error, heston_model_listified, prices), initial_params, tol = 1e-3, method='SLSQP', options={'maxiter': 1e4 }, bounds=limit_params)
-    # print(result.x)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
-    # print("params: ", {**market_params[0], **teste_params})
-    print("params: ", {**result_params})
-    save_params("heston", "2020-09-10", result_params)
 
-    next_options_b3 = filter_calls(get_option_data("VALE", "2020-09-11", "2020-09-18"))
-    next_asset_prices = get_asset_prices("VALE3", "2020-09-11", "2020-09-18")
-    next_options_full_data = filter_calls(next_options_b3.join(next_asset_prices.set_index('Data Base'), on='Data Base'))
-    next_market_params = [{ 'S0': asset_data['Asset Price'], 'K': asset_data['Strike'], 'r': r, 'tau': asset_data['Days to Maturity'] } for _, asset_data in next_options_full_data.iterrows()]
-    for i in random.sample(range(len(next_options_full_data)), 5):
-        print(f'[{i}] Data base: ', next_options_b3['Data Base'].iloc[i])
-        print('Estimates price: ', round(heston_price(**next_market_params[i], **result_params), 2))
-        print('Market price: ', next_options_b3['LastPrice'].iloc[i])
-        print('\n')
+    print("params: ", {**result_params})
+    save_params("heston", database, result_params)
 
 if __name__ == "__main__":
-    # options_b3=get_option_data("VALE", "2020-09-03", "2020-09-10")
-    # asset_prices = get_asset_prices("VALE3", "2020-09-03", "2020-09-10")
-    # print(asset_prices)
-    # print(options_b3)
-    # print(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
-    
-    calibrate_heston_model()
+    database = '2025-05-01'
+    calibrate_heston_model(database, _ndays=7)
+    validate_heston_model(database, _ndays=7)
 
