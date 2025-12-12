@@ -3,9 +3,10 @@ from functools import partial
 import numpy as np
 from heston_model import heston_price
 import pandas as pd
-from utils import options_data, gen_date_list
+from utils import options_data, gen_date_list, classify_option , OptionType
 from typing import List, Dict, Callable
 from datetime import datetime
+import random
 import os
 
 def squared_error(model, prices: List[float], params):
@@ -25,6 +26,8 @@ def squared_error(model, prices: List[float], params):
     """
     penality = 0
     ## Fazer isso para cada maturidade, strike e taxa
+    # print(model(params)[:5])
+    # print(prices[:5])
     return np.sum((model(params) - prices) ** 2) + penality
 
 
@@ -85,6 +88,9 @@ def days_to_maturity(trade_date: List[str], maturity_date: List[str]):
     maturity_dates = [datetime.strptime(date, date_format) for date in maturity_date]
     return np.array([(maturity - trade).days / 365 for trade, maturity in zip(trade_dates, maturity_dates)])
 
+def filter_calls(pricing_table: pd.DataFrame) -> pd.DataFrame:
+    return pricing_table[pricing_table['Ticker'].apply(classify_option) == OptionType.CALL]
+
 def listify_model(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str]) -> Callable:
     def func(calibrating_params):
         named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, calibrating_params)}
@@ -104,10 +110,10 @@ def calibrate_heston_model():
     }
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
-    options_b3 = get_option_data("VALE", "2020-09-03", "2020-09-10")
-    asset_prices = get_asset_prices("VALE3", "2020-09-03", "2020-09-10")
-    options_full_data = options_b3.join(asset_prices.set_index('Data Base'), on='Data Base')
-    
+    options_b3 = get_option_data("VALE", "2020-09-03", "2020-09-03")
+    asset_prices = get_asset_prices("VALE3", "2020-09-03", "2020-09-03")
+    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
+
     asset_prices = options_full_data['Asset Price'].values
     strikes = options_full_data['Strike'].values
     maturities = days_to_maturity(options_full_data['Data Base'].tolist(), options_full_data['Maturity Date'].tolist())
@@ -117,9 +123,13 @@ def calibrate_heston_model():
 
     heston_model_listified = listify_model(heston_price, market_params, list(params.keys()))
     result = minimize(partial(squared_error, heston_model_listified, prices), initial_params, tol = 1e-3, method='SLSQP', options={'maxiter': 1e4 }, bounds=limit_params)
-    print(result.x)
-    
-    print(heston_model_listified(*result.x))
+    # print(result.x)
+    teste_params = {key: value for key, value in zip(params.keys(), result.x)}
+    print("params: ", {**market_params[0], **teste_params})
+
+    for i in random.sample(range(len(options_full_data)), 5):
+        print('Estimates price: ', heston_price(**market_params[i], **teste_params))
+        print('Real price: ', options_full_data.iloc[i])
 
 if __name__ == "__main__":
     # options_b3=get_option_data("VALE", "2020-09-03", "2020-09-10")

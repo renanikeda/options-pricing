@@ -184,7 +184,7 @@ def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float,
     args = (S0, v0, K, kappa, theta, sigma, rho, lambd, tau, r)
 
     # real_integral, err = np.real( quad(integrand, 0, 100, args=args))
-    real_integral, err = quad(lambda phi: np.real(integrand(phi, *args)), 0, 100)
+    real_integral, err = quad(lambda phi: np.real(integrand(phi, *args)), 0, 100, limit=100)
 
     return (S0 - K*np.exp(-r*tau))/2 + real_integral/np.pi
 
