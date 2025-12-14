@@ -1,4 +1,4 @@
-
+import time
 from enum import Enum
 from datetime import datetime, timedelta
 class OptionType(Enum):
@@ -36,3 +36,10 @@ def ndays(database:str, ndays: int):
     start_date = datetime.strptime(database, '%Y-%m-%d')
 
     return (start_date + timedelta(days=ndays)).strftime('%Y-%m-%d')
+
+def measure(func):
+    start_time = time.time()
+    res = func()
+    end_time = time.time()
+    print(f"Elapsed time for {func.__name__}: {round((end_time - start_time)/60, 2)} minutes")
+    return res
