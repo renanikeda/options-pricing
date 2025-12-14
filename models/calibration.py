@@ -2,6 +2,7 @@ from scipy.optimize import minimize
 from functools import partial
 import numpy as np
 from heston_model import heston_price, heston_price_stable
+from kou_jump_diffusion import kou_option_price
 import pandas as pd
 from utils import options_data, gen_date_list, classify_option , OptionType, ndays, measure
 from typing import List, Dict, Callable
@@ -28,6 +29,7 @@ def squared_error(model, prices: List[float], params):
     ## Fazer isso para cada maturidade, strike e taxa
     # print(model(params)[:5])
     # print(prices[:5])
+    print('minimizing')
     return np.sum((model(params) - prices) ** 2) + penality
 
 
@@ -191,8 +193,54 @@ def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
     print("params: ", {**result_params})
     save_params("heston", database, result_params)
 
+
+def validate_kou_model(database: str, _ndays: int = 5):
+    params = load_params("kou", database)
+    data_end = ndays(database, _ndays)
+    options_b3 = get_option_data("VALE", database, data_end)
+    asset_prices = get_asset_prices("VALE3", database, data_end)
+    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
+
+    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'T': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    listified_model = listify_model(kou_option_price, market_params, list(params.keys()))
+    sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
+    print(f'Squared error for Kou model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
+
+def calibrate_kou_model(database: str = "2020-09-10", _ndays = 5):
+    r = 0.10
+
+    params = {
+        "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
+        "eta1": {"x0": 0.5, "limits": [0,50]},
+        "eta2": {"x0": 0.5, "limits": [0,50]},
+        "p": {"x0": 0.5, "limits": [0,1]},
+        "lambd": {"x0": 0.5, "limits": [0,15]},
+    }
+    data_ini = ndays(database, -1*_ndays)
+    print(data_ini, database)
+
+    initial_params = [param["x0"] for key, param in params.items()]
+    limit_params = [param["limits"] for key, param in params.items()]
+    options_b3 = get_option_data("VALE", data_ini, database)
+    asset_prices = get_asset_prices("VALE3", data_ini, database)
+    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
+
+    prices = options_full_data['LastPrice'].values
+
+    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'T': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    print(market_params[:5])
+
+    kou_model_listified = listify_model(kou_option_price, market_params, list(params.keys()))
+    result = minimize(partial(squared_error, kou_model_listified, prices), initial_params, tol = 1e-3, method='SLSQP', options={'maxiter': 1e4 }, bounds=limit_params)
+    result_params = {key: value for key, value in zip(params.keys(), result.x)}
+
+    print("params: ", {**result_params})
+    save_params("kou", database, result_params)
+
 if __name__ == "__main__":
     database = '2025-05-01'
-    measure(lambda: calibrate_heston_model(database, _ndays=7))
-    validate_heston_model(database, _ndays=7)
+    # measure(lambda: calibrate_heston_model(database, _ndays=7))
+    # validate_heston_model(database, _ndays=7)
+    measure(lambda: calibrate_kou_model(database, _ndays=7))
+    validate_kou_model(database, _ndays=7)
 

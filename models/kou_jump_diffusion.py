@@ -284,7 +284,7 @@ def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
         return 0
 
 def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
-    bound = 15
+    bound = 12
     n_vals = np.arange(0, bound)
     pin = np.exp(-lambd * T) * ((lambd * T) ** n_vals) / np.array([math.factorial(i) for i in n_vals])
     
@@ -467,5 +467,5 @@ def test_kou_process_risk_neutral() -> None:
     plt.show()
 
 if __name__ == "__main__":
-    test_kou_pricing_mc()
-    # test_kou_pricing()
+    # test_kou_pricing_mc()
+    test_kou_pricing()
