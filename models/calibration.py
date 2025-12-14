@@ -7,6 +7,7 @@ import pandas as pd
 from utils import options_data, gen_date_list, classify_option , OptionType, ndays, measure
 from typing import List, Dict, Callable
 from datetime import datetime
+import random
 import json
 import os
 
@@ -129,6 +130,9 @@ def validate_heston_model(database: str, _ndays: int = 5):
     listified_model = listify_model(heston_price_stable, market_params, list(params.keys()))
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
     print(f'Squared error for Heston model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
+    for i in random.sample(range(len(options_full_data)), 5):
+        print('Estimates price: ', round(heston_price(**market_params[i], **params), 2))
+        print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
 
 def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
     r = 0.10
@@ -205,15 +209,19 @@ def validate_kou_model(database: str, _ndays: int = 5):
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
     print(f'Squared error for Kou model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
 
+    for i in random.sample(range(len(options_full_data)), 5):
+        print('Estimates price: ', round(kou_option_price(**market_params[i], **params), 2))
+        print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
+
 def calibrate_kou_model(database: str = "2020-09-10", _ndays = 5):
     r = 0.10
 
     params = {
         "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
-        "eta1": {"x0": 0.5, "limits": [0,50]},
-        "eta2": {"x0": 0.5, "limits": [0,50]},
-        "p": {"x0": 0.5, "limits": [0,1]},
-        "lambd": {"x0": 0.5, "limits": [0,15]},
+        "eta1": {"x0": 0.5, "limits": [1e-2,50]},
+        "eta2": {"x0": 0.5, "limits": [1e-2,50]},
+        "p": {"x0": 0.5, "limits": [1e-2,1]},
+        "lambd": {"x0": 0.5, "limits": [1e-2,15]},
     }
     data_ini = ndays(database, -1*_ndays)
     print(data_ini, database)
@@ -240,6 +248,6 @@ if __name__ == "__main__":
     database = '2025-05-01'
     # measure(lambda: calibrate_heston_model(database, _ndays=7))
     # validate_heston_model(database, _ndays=7)
-    measure(lambda: calibrate_kou_model(database, _ndays=7))
+    # measure(lambda: calibrate_kou_model(database, _ndays=7))
     validate_kou_model(database, _ndays=7)
 
