@@ -108,31 +108,24 @@ def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, th
     Returns:
     complex: value of the characteristic function at phi
     """
+    if abs(phi) < 1e-10:
+        return 1.0 + 0j
+        
     # Parameters
     a = kappa * theta
     b = kappa + lambd
     
-    # Calculate d - discriminant
     rspi = rho * sigma * phi * 1j
-    d = np.sqrt((rspi - b)**2 - sigma**2 * (2j * phi - phi**2))
     
-    # Use the "Little Trap" formulation to avoid numerical issues
-    # Choose the branch of g that keeps |g| < 1
-    g = (b - rspi - d) / (b - rspi + d)
-    
-    # Calculate exp(dT) once
-    exp_dT = np.exp(d * T)
-    
-    # Calculate in log-space to avoid overflow
-    # C term
-    C = (r * phi * 1j * T + 
-         (a / sigma**2) * ((b - rspi - d) * T - 2 * np.log((1 - g * exp_dT) / (1 - g))))
-    
-    # D term  
-    D = ((b - rspi - d) / sigma**2) * ((1 - exp_dT) / (1 - g * exp_dT))
-    
-    # Return in log-space form
-    return np.exp(C + D * v0 + 1j * phi * np.log(S0))
+    d = np.sqrt((rho * sigma * phi * 1j - b)**2 + (phi * 1j + phi**2) * sigma**2)
+
+    g = (b - rspi + d)/(b - rspi - d)
+
+    exp1 = np.exp(r * phi * 1j * T)
+    term2 = S0**(phi * 1j) * ((1 - g*np.exp(d*T))/(1 - g))**(-2*a/sigma**2)
+    exp2 = np.exp(a*T*(b - rspi + d)/sigma**2 + v0*(b - rspi + d)*((1 - np.exp(d*T))/(1 - g*np.exp(d*T)))/sigma**2)
+
+    return exp1 * term2 * exp2
 
 
 def characteristic_function_stable(phi: complex, S0: float, v0: float, kappa: float, theta: float, 
@@ -291,7 +284,7 @@ def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float,
     args = (S0, v0, K, kappa, theta, sigma, rho, lambd, tau, r)
 
     # real_integral, err = np.real( quad(integrand, 0, 100, args=args))
-    real_integral, err = quad(lambda phi: np.real(integrand(phi, *args)), 0, 100, limit=250)
+    real_integral, err = quad(lambda phi: np.real(integrand(phi, *args)), 1e-6, 100, limit=500, epsabs=1e-8, epsrel=1e-8)
 
     return (S0 - K*np.exp(-r*tau))/2 + real_integral/np.pi
 

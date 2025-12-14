@@ -6,7 +6,7 @@ import pandas as pd
 from utils import options_data, gen_date_list, classify_option , OptionType, ndays
 from typing import List, Dict, Callable
 from datetime import datetime
-import random
+import time
 import json
 import os
 
@@ -127,8 +127,8 @@ def validate_heston_model(database: str, _ndays: int = 5):
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     listified_model = listify_model(heston_price_stable, market_params, list(params.keys()))
-    sqr_err = squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
-    print(f'Squared error for Heston model on {database} to {data_end} with params {params}: {sqr_err}')
+    sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
+    print(f'Squared error for Heston model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
 
 def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
     r = 0.10
@@ -163,6 +163,9 @@ def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
 
 if __name__ == "__main__":
     database = '2025-05-01'
+    start_time = time.time()
     calibrate_heston_model(database, _ndays=7)
+    end_time = time.time()
+    print("Elapsed time to calibrate model:", round((end_time - start_time)/60, 2), "minutes")
     validate_heston_model(database, _ndays=7)
 
