@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from typing import Tuple
 from brownian_motion import cov_brownian_motion_diff
-from utils import OptionType
+from utils import OptionType, measure
 from scipy.integrate import quad
 
 def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float, 
@@ -409,5 +409,5 @@ def test_heston_option_pricing() -> None:
 if __name__ == "__main__":
     # test_heston_model()
     # test_heston_option_pricing_mc()
-    test_heston_option_pricing()
+    measure(test_heston_option_pricing)
 

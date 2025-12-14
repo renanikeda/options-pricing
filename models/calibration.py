@@ -29,7 +29,6 @@ def squared_error(model, prices: List[float], params):
     ## Fazer isso para cada maturidade, strike e taxa
     # print(model(params)[:5])
     # print(prices[:5])
-    print('minimizing')
     return np.sum((model(params) - prices) ** 2) + penality
 
 

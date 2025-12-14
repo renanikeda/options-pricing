@@ -41,5 +41,9 @@ def measure(func):
     start_time = time.time()
     res = func()
     end_time = time.time()
-    print(f"Elapsed time for {func.__name__}: {round((end_time - start_time)/60, 2)} minutes")
+    diff = end_time - start_time
+    if diff < 60 * 2:
+        print(f"Elapsed time for {func.__name__}: {round(diff, 2)} seconds")
+    else:
+        print(f"Elapsed time for {func.__name__}: {round((diff)/60, 2)} minutes")
     return res
