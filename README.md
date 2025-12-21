@@ -1,29 +1,26 @@
 # Options Pricing - B3 Data Collection and Mathematical Models
 
-Este projeto realiza o download e tratamento de dados de negociações de opções da B3 (Brasil, Bolsa, Balcão), além de implementar modelos matemáticos avançados para precificação de opções.
+Este projeto realiza o download e tratamento de dados de negociações de opções da B3 (Brasil, Bolsa, Balcão), também implementa e compara modelos matemáticos para precificação de opções, como o Black-Scholes, Kou Jump Diffusion e Heston Stochastic Volatility.
 
 ## 📁 Estrutura do Projeto
 
 ```
 Options-Pricing/
-├── models/                            # Modelos de precificação
-│   ├── black_scholes_merton.py       # Modelo Black-Scholes-Merton
+├── models/                           # Modelos de precificação
+│   ├── black_scholes.py              # Modelo Black-Scholes-Merton
 │   ├── brownian_motion.py            # Simulação de Movimento Browniano
 │   ├── heston_model.py               # Modelo de Volatilidade Estocástica de Heston
 │   ├── kou_jump_diffusion.py         # Modelo de Difusão com Saltos de Kou
 │   └── calibration.py                # Script para calibração dos modelos
 │
-├── data_collection/                   # Coleta e processamento de dados
-│   ├── B3_negotiation_hist_xml.py    # Processamento de histórico XML da B3
-│   ├── B3_negotiation_hist_xml_old.py # Versão antiga do processamento XML
-│   ├── opcoes_net_hist_price.py      # Coleta de dados do opcoes.net.br
-│   └── tesouro_direto.py             # Dados de taxas do Tesouro Direto
-│
-├── Histórico B3/                      # Dados processados da B3
-│   ├── Negociações 20200102.csv
-│   ├── Negociações 20200103.csv
-│   └── ... (arquivos diários)
-│
+├── data/                             # Coleta e processamento de dados
+│   ├── B3_options_negotiation.py     # Processamento de histórico de negociações XML da B3
+│   ├── B3_options_information.py     # Coleta dados das opções como Strike e Maturity
+│   ├── opcoes_net.py                 # Coleta de dados do opcoes.net.br
+│   └── Histórico B3/                 # Dados processados da B3
+│       ├── Negociações 20200102.csv
+│       ├── Negociações 20200103.csv
+│       └── ... (arquivos diários)
 ├── utils.py                           # Funções utilitárias
 ├── requirements.txt                   # Dependências do projeto
 └── README.md
@@ -33,14 +30,14 @@ Options-Pricing/
 
 ### B3 - Brasil, Bolsa, Balcão
 
-#### [`B3_negotiation_hist_xml.py`](data_collection/B3_negotiation_hist_xml.py)
+#### [`B3_options_negotiation.py`](data_collection/B3_options_negotiation.py)
 - **Função**: Processamento de dados históricos em formato XML da B3
 - **Entrada**: Arquivos XML históricos da B3
 - **Processamento**: Conversão e limpeza de dados XML
 - **Output**: Arquivos CSV estruturados no diretório `Histórico B3/`
 - **Dados**: Negociações, preços, volumes, strikes, vencimentos
 
-#### [`opcoes_net_hist_price.py`](data_collection/opcoes_net_hist_price.py)
+#### [`opcoes_net.py`](data_collection/opcoes_net.py)
 - **Função**: Coleta de histórico de preços por ticker
 - **Fonte**: opcoes.net.br
 - **Input**: Ticker da opção
@@ -48,7 +45,7 @@ Options-Pricing/
 
 ## 🧮 Modelos Matemáticos
 
-### 1. Black-Scholes-Merton ([`black_scholes_merton.py`](models/black_scholes_merton.py))
+### 1. Black-Scholes-Merton ([`black_scholes.py`](models/black_scholes.py))
 
 **Modelo Clássico de Precificação**
 
@@ -152,12 +149,12 @@ pip install -r requirements.txt
 
 **Processar histórico XML da B3**:
 ```bash
-python data_collection/B3_negotiation_hist_xml.py
+python data_collection/B3_options_negotiation.py
 ```
 
 **Coletar dados do opcoes.net.br**:
 ```bash
-python data_collection/opcoes_net_hist_price.py
+python data_collection/opcoes_net.py
 ```
 
 **Obter taxas do Tesouro Direto**:
@@ -170,7 +167,7 @@ python data_collection/tesouro_direto.py
 #### Black-Scholes-Merton
 
 ```python
-from models.black_scholes_merton import black_scholes_price, implied_volatility, calculate_greeks
+from models.black_scholes import black_scholes_price, implied_volatility, calculate_greeks
 
 # Precificar opção
 S0 = 100      # Preço spot

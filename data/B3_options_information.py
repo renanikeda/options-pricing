@@ -8,10 +8,12 @@ from time import sleep
 import os 
 
 def get_options_info(date: str, tipo: str = 'Empresa'):
-  # date like %Y%m%d
+  """
+  Get options information from B3 for a given date and type.
+  Strike and Maturity Date
+  """
+  
   url = f'https://www.b3.com.br/json/{date}/Posicoes/{tipo}/SI_C_OPCPOSAB{tipo.upper()[:3]}.json'
-  # url = f'https://www.b3.com.br/json/20200901/Posicoes/Empresa/SI_C_OPCPOSABEMP.json'
-  # url = f'https://www.b3.com.br/json/20200702/Posicoes/Indice/SI_C_OPCPOSABIND.json'
   try:
     sleep(randint(10, 100)/1000) 
     headers = {}

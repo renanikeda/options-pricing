@@ -1,5 +1,5 @@
 from B3_options_information import get_options_info_treated
-from B3_negotiation_hist_xml import get_negotiation_treated
+from data.B3_options_negotiation import get_negotiation_treated
 import os
 import pandas as pd
 from datetime import datetime, timedelta

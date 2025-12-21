@@ -5,7 +5,7 @@ from brownian_motion import geometric_brownian_motion
 
 from utils import OptionType
 
-def black_scholes_merton(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL):
+def black_scholes(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL):
     """
     Calculates the Black-Scholes-Merton option price.
 
@@ -76,8 +76,8 @@ if __name__ == "__main__":
     T = 0.5
     K = 98
 
-    BSM_call = black_scholes_merton(S0, K, T, r, sigma, OptionType.CALL)
-    BSM_put = black_scholes_merton(S0, K, T, r, sigma, OptionType.PUT)
+    BSM_call = black_scholes(S0, K, T, r, sigma, OptionType.CALL)
+    BSM_put = black_scholes(S0, K, T, r, sigma, OptionType.PUT)
 
     print(f'BSM Call Option Price: {BSM_call:.2f}')
     print(f'BSM Put Option Price: {BSM_put:.2f}')
