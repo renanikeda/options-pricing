@@ -1,3 +1,4 @@
+import os
 import time
 from enum import Enum
 from datetime import datetime, timedelta
@@ -15,9 +16,12 @@ def classify_option(ticker: str):
     else:
         raise ValueError("Ticker does not specify option type.")
 
+def get_prefixo_ticker(ticker: str):
+    return ticker[:4]
+
 colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
 
-options_data = lambda database: f'../market options/Histórico B3/Negociações {database}.csv'
+options_data = lambda database: f'../data/Histórico B3/Negociações {database}.csv'
 
 
 def gen_date_list(ini_date: str, end_date: str):
@@ -31,6 +35,20 @@ def gen_date_list(ini_date: str, end_date: str):
     start_date += delta
 
   return date_list
+
+
+def gen_valid_date_list(ini_date: str, ndays: int):
+    start_date = datetime.strptime(ini_date, '%Y-%m-%d')
+    delta = timedelta(days=1)
+    counter = 0
+    date_list = []
+    while counter < ndays:
+        if os.path.exists(options_data(database=start_date.strftime('%Y%m%d'))):
+            date_list.append(start_date.strftime('%Y%m%d'))
+            counter += 1
+        start_date += delta
+
+    return date_list
 
 def ndays(database:str, ndays: int):
     start_date = datetime.strptime(database, '%Y-%m-%d')

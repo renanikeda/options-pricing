@@ -4,7 +4,7 @@ import numpy as np
 from heston_model import heston_price, heston_price_stable
 from kou_jump_diffusion import kou_option_price
 import pandas as pd
-from utils import options_data, gen_date_list, classify_option , OptionType, ndays, measure
+from utils import options_data, gen_date_list, classify_option , OptionType, ndays, measure, get_prefixo_ticker
 from typing import List, Dict, Callable
 from datetime import datetime
 import random
@@ -52,7 +52,7 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str):
         file_path = options_data(database.replace('-', ''))
         prices = pd.read_csv(file_path) if os.path.exists(file_path) else pd.DataFrame()
         if prices.empty: continue
-        prices = prices[prices['Ticker'].str.contains(asset_ticker)]
+        prices = prices[prices['Ticker'].str.contains(get_prefixo_ticker(asset_ticker))]
         full_prices = pd.concat([full_prices, prices], ignore_index=True)
     full_prices.dropna(subset=['Strike'], inplace=True)
     full_prices['Days to Maturity'] = days_to_maturity(full_prices['Data Base'].tolist(), full_prices['Maturity Date'].tolist())
@@ -127,7 +127,7 @@ def validate_heston_model(database: str, _ndays: int = 5):
     options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
-    listified_model = listify_model(heston_price_stable, market_params, list(params.keys()))
+    listified_model = listify_model(heston_price, market_params, list(params.keys()))
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
     print(f'Squared error for Heston model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
     for i in random.sample(range(len(options_full_data)), 5):
@@ -165,7 +165,7 @@ def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
     print("params: ", {**result_params})
     save_params("heston", database, result_params)
 
-def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
+def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
     r = 0.10
 
     params = {
@@ -177,19 +177,20 @@ def calibrate_heston_model(database: str = "2020-09-10", _ndays = 5):
         "lambd": {"x0": 0.03, "limits": [-1,1]},
     }
     data_ini = ndays(database, -1*_ndays)
-    print(data_ini, database)
+    print('Dates: ', data_ini, database)
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
-    options_b3 = get_option_data("VALE", data_ini, database)
-    asset_prices = get_asset_prices("VALE3", data_ini, database)
+
+    options_b3 = get_option_data(ticker, data_ini, database)
+    asset_prices = get_asset_prices(ticker, data_ini, database)
     options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
 
     prices = options_full_data['LastPrice'].values
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
-    print(market_params[:5])
+    print('Market params: ', market_params[:5])
 
-    heston_model_listified = listify_model(heston_price_stable, market_params, list(params.keys()))
+    heston_model_listified = listify_model(heston_price, market_params, list(params.keys()))
     result = minimize(partial(squared_error, heston_model_listified, prices), initial_params, tol = 1e-3, method='SLSQP', options={'maxiter': 1e4 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
@@ -246,8 +247,8 @@ def calibrate_kou_model(database: str = "2020-09-10", _ndays = 5):
 
 if __name__ == "__main__":
     database = '2025-05-01'
-    # measure(lambda: calibrate_heston_model(database, _ndays=7))
-    # validate_heston_model(database, _ndays=7)
+    measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
+    validate_heston_model(database, _ndays=5)
     # measure(lambda: calibrate_kou_model(database, _ndays=7))
-    validate_kou_model(database, _ndays=7)
+    # validate_kou_model(database, _ndays=7)
 

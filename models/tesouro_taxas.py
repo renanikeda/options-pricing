@@ -1,6 +1,7 @@
 import pandas as pd
 from enum import Enum
 from datetime import datetime
+from typing import Optional
 from bcb import sgs
 
 
@@ -38,22 +39,32 @@ class TesouroTaxas:
         except ValueError:
             ValueError("Dates must be in 'YYYY-MM-DD' format")
         
-    def get_taxa(self, tipo_titulo: TipoTitulo, data_base: str, data_vencimento: str):
+    def get_taxa(self, tipo_titulo: TipoTitulo, data_base: str, data_vencimento: Optional[str] = None):
         self.valid_date(data_base)
-        self.valid_date(data_vencimento)
+        if data_vencimento: self.valid_date(data_vencimento)
         try:
-            rate = self.tesouro_taxas.loc[(tipo_titulo, data_base, data_vencimento)]['Taxa Compra Manha']
+            rate = self.tesouro_taxas.loc[(tipo_titulo.value, data_base, data_vencimento)]['Taxa Compra Manha'] if data_vencimento else self.tesouro_taxas.loc[(tipo_titulo.value, data_base)]['Taxa Compra Manha']
             return rate
         except KeyError:
             return None
+        
     def get_tesouro_vencimentos(self, tipo_titulo: TipoTitulo, data_base: str):
         self.valid_date(data_base)
         try:
-            vencimentos = self.tesouro_taxas.loc[(tipo_titulo, data_base)].index.tolist()
+            vencimentos = self.tesouro_taxas.loc[(tipo_titulo.value, data_base)].index.tolist()
             return vencimentos
         except KeyError:
             return []
+        
     def get_selic(self, date: str):
         self.valid_date(date)
         return sgs.get(('selic', 432), start = date, end = date)['selic'].iloc[0]
 
+if __name__ == "__main__":
+    tesouro = TesouroTaxas()
+    taxa = tesouro.get_taxa(TipoTitulo.PREFIXADO, '2025-01-03')
+    print(f'Prefixado:\n{taxa}')
+    vencimentos = tesouro.get_tesouro_vencimentos(TipoTitulo.PREFIXADO, '2025-01-03')
+    print(f'Vencimentos:\n{vencimentos}')
+    selic_rate = tesouro.get_selic('2025-01-03')
+    print(f'Selic Rate:\n{selic_rate}')
