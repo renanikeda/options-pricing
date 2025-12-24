@@ -3,6 +3,7 @@ import zipfile
 import pandas as pd
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from typing import Literal
 import os
 import shutil
 
@@ -39,7 +40,7 @@ def parse_xml(xml_path: str):
         print(f"Error reading file: {e}")
         return None
 
-def parse_information_xml_to_df(xml_path: str) -> pd.DataFrame:
+def parse_products_xml_to_df(xml_path: str) -> pd.DataFrame:
     
     root = parse_xml(xml_path)
     if root is None: return pd.DataFrame()  # Return empty DataFrame on parse error
@@ -86,6 +87,7 @@ def parse_negotiation_xml_to_df(xml_path: str) -> pd.DataFrame:
         record = {}
         
         # Extract fields
+        record["ID"] = pricrpt.findtext("bvmf217:FinInstrmId/bvmf217:OthrId/bvmf217:Id", namespaces=ns)
         record["TradeDate"] = pricrpt.findtext("bvmf217:TradDt/bvmf217:Dt", namespaces=ns)
         record["Ticker"] = pricrpt.findtext("bvmf217:SctyId/bvmf217:TckrSymb", namespaces=ns)
         record["FirstPrice"] = pricrpt.findtext("bvmf217:FinInstrmAttrbts/bvmf217:FrstPric", namespaces=ns)
@@ -214,7 +216,7 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
         print("No CSV files found or all files failed to read.")
         return pd.DataFrame()
 
-def get_negotiation_treated(database: str, output: str = '.'):
+def get_negotiations_treated(database: str, output: str = '.'):
     try:
         interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
         ticker_regex = '|'.join(interested_tickers)
@@ -229,63 +231,91 @@ def get_negotiation_treated(database: str, output: str = '.'):
         file = extracted_files[-1]
         if file.endswith('.xml'):
             result = parse_negotiation_xml_to_df(file)   
-        shutil.rmtree('/'.join(file.split('/')[:-1]))
+        # shutil.rmtree('/'.join(file.split('/')[:-1]))
         result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
-        result.dropna(subset=['TradeAmount'], inplace=True)
         return result
     except:
         return pd.DataFrame()
 
-# if __name__ == "__main__":
-#     interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
-#     date_ini = '2025-10-01'
-#     date_end = '2025-10-01'
-#     output = 'Histórico B3'
+def get_products_treated(database: str, output: str = '.'):
+    try:
+        interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
+        ticker_regex = '|'.join(interested_tickers)
+        code = "IN" + database[2:]
+        print(code)
+        zip_path = download_and_save_zipfile(code)
+        extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
+        print(extracted_files)
+        result = pd.DataFrame()
+        if not extracted_files: 
+            return result 
+        file = extracted_files[-1]
+        if file.endswith('.xml'):
+            result = parse_products_xml_to_df(file)   
+        # shutil.rmtree('/'.join(file.split('/')[:-1]))
+        result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
+        return result
+    except:
+        return pd.DataFrame()
 
-#     codes = list(filter(lambda code: not  os.path.exists(f'{output}/{code.replace('PR', 'Negociações 20')}.csv'), gen_date_list_code(date_ini, date_end)))
+def get_b3_info(database: str, output: str = '.', type: Literal['negotiation', 'product'] = 'negotiation'):
+    try:
+        interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
+        ticker_regex = '|'.join(interested_tickers)
+        prefix = 'PR' if type == 'negotiation' else 'IN'
+        code = prefix + database[2:]
+        print(code)
+        zip_path = download_and_save_zipfile(code)
+        extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
+        print(extracted_files)
+        result = pd.DataFrame()
+        if not extracted_files: 
+            return result 
+        file = extracted_files[-1]
+        if file.endswith('.xml'):
+            result = result = parse_negotiation_xml_to_df(file) if type == 'negotiation' else parse_products_xml_to_df(file)
+        shutil.rmtree('/'.join(file.split('/')[:-1]))
+        result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
+        return result
+    except:
+        return pd.DataFrame()
 
-#     print(codes)
-
-#     for code in codes:
-#         zip_path = download_and_save_zipfile(code)
-#         extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
-#         print(extracted_files)
-#         if not extracted_files:
-#             continue
-#         file = extracted_files[-1]
-#         if file.endswith('.xml'):
-#             df_negotiation = parse_xml_to_df(file)
-#             date = code.replace('PR', '20')
-#             output_file = f"{output}/Negociações {date}.csv"
-#             df_negotiation.to_csv(output_file, index=False)
-#         shutil.rmtree('/'.join(file.split('/')[:-1]))
-
-#     output_path = 'interested_merged_deals.csv'
-#     merge_all_deals(output, output_path, '|'.join(interested_tickers))
+def get_options_treated(database: str, output: str = '.'):
+    try:
+        negotiations = get_b3_info(database, output, 'negotiation')
+        products = get_b3_info(database, output, 'product')
+        print(negotiations)
+        print(products)
+    except:
+        return pd.DataFrame()
 
 if __name__ == "__main__":
-    # code = 'IN250616'
-    # output = '.'
-    # # get_negotiation_treated('20250616', output)
-    # zip_path = download_and_save_zipfile(code)
-    # extracted_files = unzip_file(zip_path, f"{output}/{code}", True)
-    # print(extracted_files)
-    # file = extracted_files[-1]
-    # if file.endswith('.xml'):
-    #     df_negotiation = parse_information_xml_to_df(file)
-    #     date = code.replace('IN', '20')
-    #     output_file = f"./Informações {date}.csv"
-    #     df_negotiation.to_csv(output_file, index=False)
-
-    code = 'PR250616'
+    database = '20250616'
     output = '.'
-    # get_negotiation_treated('20250616', output)
-    zip_path = download_and_save_zipfile(code)
-    extracted_files = unzip_file(zip_path, f"{output}/{code}", True)
-    print(extracted_files)
-    file = extracted_files[-1]
-    if file.endswith('.xml'):
-        df_negotiation = parse_negotiation_xml_to_df(file)
-        date = code.replace('PR', '20')
-        output_file = f"./Negociações {date}.csv"
-        df_negotiation.to_csv(output_file, index=False)
+    print(get_options_treated(database, output))
+    
+
+# if __name__ == "__main__":
+#     code = 'IN250616'
+#     output = '.'
+#     zip_path = download_and_save_zipfile(code)
+#     extracted_files = unzip_file(zip_path, f"{output}/{code}", True)
+#     print(extracted_files)
+#     file = extracted_files[-1]
+#     if file.endswith('.xml'):
+#         df_negotiation = parse_information_xml_to_df(file)
+#         date = code.replace('IN', '20')
+#         output_file = f"./Informações {date}.csv"
+#         df_negotiation.to_csv(output_file, index=False)
+
+#     code = 'PR250616'
+#     output = '.'
+#     zip_path = download_and_save_zipfile(code)
+#     extracted_files = unzip_file(zip_path, f"{output}/{code}", True)
+#     print(extracted_files)
+#     file = extracted_files[-1]
+#     if file.endswith('.xml'):
+#         df_negotiation = parse_negotiation_xml_to_df(file)
+#         date = code.replace('PR', '20')
+#         output_file = f"./Negociações {date}.csv"
+#         df_negotiation.to_csv(output_file, index=False)
