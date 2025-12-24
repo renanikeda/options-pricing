@@ -286,14 +286,20 @@ def get_options_treated(database: str, output: str = '.'):
         products = get_b3_info(database, output, 'product')
         print(negotiations)
         print(products)
+        products = products.merge(negotiations[['ID', 'Ticker']], left_on='ID ação', right_on='ID', how='left')
+        products.rename(columns={'Ticker_x': 'Ticker', 'Ticker_y': 'Ticker Ação'}, inplace=True)
+        final_df = negotiations.merge(products[['Ticker', 'Estilo', 'Tipo', 'Strike', 'Vencimento', 'Ticker Ação']], on='Ticker', how='left')
+        final_df.drop(columns=['ID'], inplace=True)
+        return final_df
+
     except:
         return pd.DataFrame()
 
 if __name__ == "__main__":
     database = '20250616'
     output = '.'
-    print(get_options_treated(database, output))
-    
+    result = get_options_treated(database, output)
+    result.to_csv(f"./Negociações {database}.csv", index=False)
 
 # if __name__ == "__main__":
 #     code = 'IN250616'
