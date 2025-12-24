@@ -1,5 +1,5 @@
 from B3_options_information import get_options_info_treated
-from data.B3_options_negotiation import get_negotiation_treated
+from B3_options_negotiation import get_negotiation_treated
 import os
 import pandas as pd
 from datetime import datetime, timedelta
@@ -22,8 +22,8 @@ def gen_date_list(ini_date: str, end_date: str):
 
 if __name__ == "__main__":
 
-  date_ini = '2025-01-01'
-  date_end = '2025-12-01'
+  date_ini = '2023-01-01'
+  date_end = '2024-01-01'
   # database = '20200901'
   output = 'Histórico B3'
 

@@ -289,5 +289,5 @@ if __name__ == "__main__":
     print('Testing heston')
     # test_heston_model()
     # measure(test_heston_option_pricing_mc)
-    # measure(test_heston_option_pricing)
+    measure(test_heston_option_pricing)
     

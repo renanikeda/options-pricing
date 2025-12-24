@@ -216,7 +216,7 @@ def calibrate_kou_model(database: str = "2020-09-10", _ndays = 5):
 if __name__ == "__main__":
     database = '2025-05-01'
     measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
-    validate_heston_model(database, _ndays=5)
+    validate_heston_model(database, _ndays=1)
     # measure(lambda: calibrate_kou_model(database, _ndays=7))
     # validate_kou_model(database, _ndays=7)
 
