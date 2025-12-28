@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import Literal
 import os
+from time import sleep
 import shutil
 
 def gen_date_list_code(ini_date: str, end_date: str):
@@ -60,10 +61,10 @@ def parse_products_xml_to_df(xml_path: str) -> pd.DataFrame:
         if not record["Ticker"]: continue
         record["Ação"] = pricrpt.findtext("bvmf100:FinInstrmAttrCmon/bvmf100:Asst", namespaces=ns)
         record["ID ação"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:UndrlygInstrmId/bvmf100:OthrId/bvmf100:Id", namespaces=ns)
-        record["Estilo"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:OptnStyle", namespaces=ns)
-        record["Tipo"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:OptnTp", namespaces=ns)
+        record["Style"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:OptnStyle", namespaces=ns)
+        record["Type"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:OptnTp", namespaces=ns)
         record["Strike"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:ExrcPric", namespaces=ns)
-        record["Vencimento"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:XprtnDt", namespaces=ns)
+        record["Maturity"] = pricrpt.findtext("bvmf100:InstrmInf/bvmf100:OptnOnEqtsInf/bvmf100:XprtnDt", namespaces=ns)
         record["Descrição"] = pricrpt.findtext("bvmf100:FinInstrmAttrCmon/bvmf100:Desc", namespaces=ns)
         rows.append(record)
 
@@ -165,11 +166,11 @@ def unzip_file(zip_path: str, extract_to: str = None, remove_zip: bool = True):
         
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             print(f"Extracting {zip_path} to {extract_to}")
-            print("Zip file contents:")
-            if zip_ref.namelist():
-                os.makedirs(extract_to, exist_ok=True)
-            for filename in zip_ref.namelist():
-                print(f"  - {filename}")
+            # print("Zip file contents:")
+            # if zip_ref.namelist():
+            #     os.makedirs(extract_to, exist_ok=True)
+            # for filename in zip_ref.namelist():
+            #     print(f"  - {filename}")
                 
             zip_ref.extractall(extract_to)
             
@@ -187,7 +188,8 @@ def unzip_file(zip_path: str, extract_to: str = None, remove_zip: bool = True):
         
     except zipfile.BadZipFile:
         print("Error: File is not a valid zip file")
-        return None
+        # return None
+        raise zipfile.BadZipFile
     except IOError as e:
         print(f"Error extracting file: {e}")
         return None
@@ -216,49 +218,7 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
         print("No CSV files found or all files failed to read.")
         return pd.DataFrame()
 
-def get_negotiations_treated(database: str, output: str = '.'):
-    try:
-        interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
-        ticker_regex = '|'.join(interested_tickers)
-        code = "PR" + database[2:]
-        print(code)
-        zip_path = download_and_save_zipfile(code)
-        extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
-        print(extracted_files)
-        result = pd.DataFrame()
-        if not extracted_files: 
-            return result 
-        file = extracted_files[-1]
-        if file.endswith('.xml'):
-            result = parse_negotiation_xml_to_df(file)   
-        # shutil.rmtree('/'.join(file.split('/')[:-1]))
-        result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
-        return result
-    except:
-        return pd.DataFrame()
-
-def get_products_treated(database: str, output: str = '.'):
-    try:
-        interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
-        ticker_regex = '|'.join(interested_tickers)
-        code = "IN" + database[2:]
-        print(code)
-        zip_path = download_and_save_zipfile(code)
-        extracted_files = unzip_file(zip_path, f"{output}/{code}") if zip_path else None
-        print(extracted_files)
-        result = pd.DataFrame()
-        if not extracted_files: 
-            return result 
-        file = extracted_files[-1]
-        if file.endswith('.xml'):
-            result = parse_products_xml_to_df(file)   
-        # shutil.rmtree('/'.join(file.split('/')[:-1]))
-        result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
-        return result
-    except:
-        return pd.DataFrame()
-
-def get_b3_info(database: str, output: str = '.', type: Literal['negotiation', 'product'] = 'negotiation'):
+def get_b3_info(database: str, output: str = '.', type: Literal['negotiation', 'product'] = 'negotiation', retries = 0):
     try:
         interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
         ticker_regex = '|'.join(interested_tickers)
@@ -273,22 +233,31 @@ def get_b3_info(database: str, output: str = '.', type: Literal['negotiation', '
             return result 
         file = extracted_files[-1]
         if file.endswith('.xml'):
-            result = result = parse_negotiation_xml_to_df(file) if type == 'negotiation' else parse_products_xml_to_df(file)
+            result = parse_negotiation_xml_to_df(file) if type == 'negotiation' else parse_products_xml_to_df(file)
         shutil.rmtree('/'.join(file.split('/')[:-1]))
         result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
         return result
+    except zipfile.BadZipFile:
+        if retries >= 3:
+            print('Max retries reached. Exiting.')
+            return pd.DataFrame()
+        retries += 1 
+        print(f'Bad zip file encountered. Trying again {retries}...')
+        sleep_time = 0.5*retries
+        sleep(sleep_time)
+        return get_b3_info(database, output, type, retries)
     except:
         return pd.DataFrame()
 
 def get_options_treated(database: str, output: str = '.'):
     try:
         negotiations = get_b3_info(database, output, 'negotiation')
-        products = get_b3_info(database, output, 'product')
         print(negotiations)
+        products = get_b3_info(database, output, 'product')
         print(products)
         products = products.merge(negotiations[['ID', 'Ticker']], left_on='ID ação', right_on='ID', how='left')
-        products.rename(columns={'Ticker_x': 'Ticker', 'Ticker_y': 'Ticker Ação'}, inplace=True)
-        final_df = negotiations.merge(products[['Ticker', 'Estilo', 'Tipo', 'Strike', 'Vencimento', 'Ticker Ação']], on='Ticker', how='left')
+        products.rename(columns={'Ticker_x': 'Ticker', 'Ticker_y': 'Asset Ticker'}, inplace=True)
+        final_df = negotiations.merge(products[['Ticker', 'Style', 'Type', 'Strike', 'Maturity', 'Asset Ticker']], on='Ticker', how='left')
         final_df.drop(columns=['ID'], inplace=True)
         return final_df
 
