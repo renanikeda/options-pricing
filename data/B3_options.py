@@ -238,7 +238,7 @@ def get_b3_info(database: str, output: str = '.', type: Literal['negotiation', '
         result = result[result['Ticker'].str.contains(ticker_regex, regex=True)]
         return result
     except zipfile.BadZipFile:
-        if retries >= 3:
+        if retries > 3:
             print('Max retries reached. Exiting.')
             return pd.DataFrame()
         retries += 1 

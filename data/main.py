@@ -7,16 +7,27 @@ from datetime import datetime, timedelta
 interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
 
 def gen_date_list(ini_date: str, end_date: str):
-  start_date = datetime.strptime(ini_date, '%Y-%m-%d')
-  end_date = datetime.strptime(end_date, '%Y-%m-%d')
-  delta = timedelta(days=1)
+    """
+    Generate list of dates between ini_date and end_date, excluding weekends.
+    
+    Parameters:
+    ini_date (str): start date in format 'YYYY-MM-DD'
+    end_date (str): end date in format 'YYYY-MM-DD'
+    
+    Returns:
+    list: list of dates in format 'YYYYMMDD' (weekdays only)
+    """
+    start_date = datetime.strptime(ini_date, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    delta = timedelta(days=1)
 
-  date_list = []
-  while start_date <= end_date:
-    date_list.append(start_date.strftime('%Y%m%d'))
-    start_date += delta
+    date_list = []
+    while start_date <= end_date:
+        if start_date.weekday() < 5:  # Monday=0, Friday=4
+            date_list.append(start_date.strftime('%Y%m%d'))
+        start_date += delta
 
-  return date_list
+    return date_list
 
 
 if __name__ == "__main__":
