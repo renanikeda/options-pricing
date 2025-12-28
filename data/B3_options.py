@@ -252,9 +252,9 @@ def get_b3_info(database: str, output: str = '.', type: Literal['negotiation', '
 def get_options_treated(database: str, output: str = '.'):
     try:
         negotiations = get_b3_info(database, output, 'negotiation')
-        print(negotiations)
+        # print(negotiations)
         products = get_b3_info(database, output, 'product')
-        print(products)
+        # print(products)
         products = products.merge(negotiations[['ID', 'Ticker']], left_on='ID ação', right_on='ID', how='left')
         products.rename(columns={'Ticker_x': 'Ticker', 'Ticker_y': 'Asset Ticker'}, inplace=True)
         final_df = negotiations.merge(products[['Ticker', 'Style', 'Type', 'Strike', 'Maturity', 'Asset Ticker']], on='Ticker', how='left')

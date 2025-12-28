@@ -21,8 +21,8 @@ def gen_date_list(ini_date: str, end_date: str):
 
 if __name__ == "__main__":
 
-  date_ini = '2025-06-16'
-  date_end = '2025-06-16'
+  date_ini = '2025-01-01'
+  date_end = '2026-01-01'
   # database = '20200901'
   output = 'Histórico B3'
 
@@ -34,6 +34,4 @@ if __name__ == "__main__":
   print(databases)
   for database in databases:
     result = get_options_treated(database)
-
-
-    result.to_csv(f'{output}/Negociações {database}.csv', index=False)
+    if not result.empty:  result.to_csv(f'{output}/Negociações {database}.csv', index=False)
