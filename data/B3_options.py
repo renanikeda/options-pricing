@@ -8,18 +8,6 @@ import os
 from time import sleep
 import shutil
 
-def gen_date_list_code(ini_date: str, end_date: str):
-  start_date = datetime.strptime(ini_date, '%Y-%m-%d')
-  end_date = datetime.strptime(end_date, '%Y-%m-%d')
-  delta = timedelta(days=1)
-
-  date_list = []
-  while start_date <= end_date:
-    date_list.append("PR"+start_date.strftime('%y%m%d'))
-    start_date += delta
-
-  return date_list
-
 def parse_xml(xml_path: str):
     """
     Parse an XML file and return its root element
@@ -123,7 +111,7 @@ def download_and_save_zipfile(file_code: str, save_path: str = None):
     url = f'https://www.b3.com.br/pesquisapregao/download?filelist={file_code}.zip,'
     print(url)
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=7)
         response.raise_for_status()
         
         if save_path is None:
