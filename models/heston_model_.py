@@ -394,12 +394,12 @@ def test_heston_option_pricing() -> None:
     S0 = 100
     K = 100
     v0 = 0.1
-    rho = -0.5711
-    kappa = 1.5768
-    theta = 0.0398
-    sigma = 0.3
+    rho = -0.2
+    kappa = 0.5
+    theta = 0.01
+    sigma = 0.13
     lambd = 0.575
-    r = 0.03
+    r = 0.1
     T = 1.0
     
     call_price = heston_price( S0, K, v0, kappa, theta, sigma, rho, lambd, T, r )

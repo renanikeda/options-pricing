@@ -4,6 +4,7 @@ from typing import Tuple
 from brownian_motion import cov_brownian_motion_diff
 from utils import OptionType, measure
 from scipy.integrate import quad
+import QuantLib as ql
 
 def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float, 
                  sigma: float, r: float, T: float, dt: float, M: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -110,15 +111,18 @@ def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, th
     """
     # Parameters
     a = kappa * theta
-    b = kappa
-    u = -0.5
     if j == 1:
-        b = b - rho * sigma
-        u = -1 * u
+        u = 0.5
+        b = kappa - rho * sigma
+    else:
+        u = -0.5
+        b = kappa
 
     sigma_2 = sigma**2
     rspi = rho * sigma * phi * 1j
     d = np.sqrt((rspi - b)**2 - sigma_2 * (2 * u * phi * 1j - phi**2))
+    if np.real(d) < 0:
+        d = -d
     g = (b - rspi - d)/(b - rspi + d)
     exp_dT = np.exp(-d*T)
 
@@ -149,6 +153,8 @@ def integrand(phi: float, S0: float, v0: float, K: float, kappa: float, theta: f
     Returns:
     float: real part of the integrand at phi
     """
+    if abs(phi) < 1e-10:
+        return 0.0 + 0j
     
     char_val = characteristic_function(phi, S0, v0, kappa, theta, sigma, rho, tau, r, j)
     
@@ -157,6 +163,9 @@ def integrand(phi: float, S0: float, v0: float, K: float, kappa: float, theta: f
     denominator = 1j * phi
     
     result = numerator / denominator
+
+    if not np.isfinite(result):
+        return 0.0 + 0j
     
     return np.real(result)
 
@@ -195,12 +204,50 @@ def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float,
     args = (S0, v0, K, kappa, theta, sigma, rho, tau, r)
 
     # real_integral, err = np.real( quad(integrand, 0, 100, args=args))
-    integration1, _ = quad(integrand, 0, np.inf, args=(*args, 1), limit=500, epsabs=1e-8, epsrel=1e-8)
-    integration2, _ = quad(integrand, 0, np.inf, args=(*args, 2), limit=500, epsabs=1e-8, epsrel=1e-8)
+    phi_max = 100
+    integration1, _ = quad(integrand, 0, phi_max, args=(*args, 1), limit=500, epsabs=1e-8, epsrel=1e-8)
+    integration2, _ = quad(integrand, 0, phi_max, args=(*args, 2), limit=500, epsabs=1e-8, epsrel=1e-8)
 
     P1 = 0.5 + (1/np.pi) * integration1
     P2 = 0.5 + (1/np.pi) * integration2
-    return S0 * P1 - K * np.exp(-r * tau) * P2
+    price = S0 * P1 - K * np.exp(-r * tau) * P2
+    if price < 0.0:
+        price = 0.0
+    return price
+
+def heston_price_ql(S0: float, K: float, v0: float, kappa: float, theta: float, 
+                sigma: float, rho: float, tau: float, r: float) -> float:
+    """Calculate European call option price using QuantLib's Heston model implementation."""  
+    today = ql.Date().todaysDate()
+    ql.Settings.instance().evaluationDate = today
+    maturity_date = today + ql.Period(int(365 * tau), ql.Days)
+    exercise = ql.EuropeanExercise(maturity_date)
+    payoff = ql.PlainVanillaPayoff(ql.Option.Call, K)
+    option = ql.EuropeanOption(payoff, exercise)
+    risk_free_curve = ql.FlatForward(today, r, ql.Actual365Fixed())
+    dividend_curve = ql.FlatForward(today, 0, ql.Actual365Fixed())
+    risk_free_handle = ql.YieldTermStructureHandle(risk_free_curve)
+    dividend_handle = ql.YieldTermStructureHandle(dividend_curve)
+    
+    spot_handle = ql.QuoteHandle(ql.SimpleQuote(S0))
+    heston_process = ql.HestonProcess(
+        risk_free_handle,
+        dividend_handle,
+        spot_handle,
+        v0,      # initial variance
+        kappa,   # mean reversion speed
+        theta,   # long-term variance
+        sigma,   # vol of vol
+        rho      # correlation
+    )
+    
+    # Heston model
+    heston_model = ql.HestonModel(heston_process)
+    heston_engine = ql.AnalyticHestonEngine(heston_model)
+    option.setPricingEngine(heston_engine)
+    option_price = option.NPV()
+
+    return option_price
 
 def test_heston_model() -> None:
     """Test Heston model visualization."""
@@ -273,16 +320,21 @@ def test_heston_option_pricing() -> None:
     S0 = 100
     K = 100
     v0 = 0.1
-    rho = -0.5711
-    kappa = 1.5768
-    theta = 0.0398
-    sigma = 0.3
-    r = 0.03
+    rho = -0.2
+    kappa = 0.5
+    theta = 0.01
+    sigma = 0.13
+    lambd = 0.575
+    r = 0.1
     T = 1.0
     
     call_price = heston_price( S0, K, v0, kappa, theta, sigma, rho, T, r )
     
     print(f"Call option price: {call_price:.4f}")
+
+    call_price_ql = heston_price_ql( S0, K, v0, kappa, theta, sigma, rho, T, r )
+    print(f"Call option price ql: {call_price_ql:.4f}")
+
 
 
 if __name__ == "__main__":
