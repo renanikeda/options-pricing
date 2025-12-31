@@ -168,10 +168,10 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     save_params("heston", database, result_params)
 
 
-def validate_kou_model(database: str, _ndays: int = 5):
+def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("kou", database)
     data_end = ndays(database, _ndays)
-    options_full_data = get_option_data("VALE", database, data_end)
+    options_full_data = get_option_data(asset_ticker, database, data_end)
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'T': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     listified_model = listify_model(kou_option_price, market_params, list(params.keys()))
@@ -182,13 +182,13 @@ def validate_kou_model(database: str, _ndays: int = 5):
         print('Estimates price: ', round(kou_option_price(**market_params[i], **params), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
 
-def calibrate_kou_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
+def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
     r = 0.10
 
     params = {
         "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
-        "eta1": {"x0": 0.5, "limits": [1e-2,50]},
-        "eta2": {"x0": 0.5, "limits": [1e-2,50]},
+        "eta1": {"x0": 2, "limits": [1e-2,50]},
+        "eta2": {"x0": 2, "limits": [1e-2,50]},
         "p": {"x0": 0.5, "limits": [1e-2,1]},
         "lambd": {"x0": 0.5, "limits": [1e-2,15]},
     }
@@ -197,7 +197,7 @@ def calibrate_kou_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
 
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
-    options_full_data = get_option_data(ticker, data_ini, database)
+    options_full_data = get_option_data(asset_ticker, data_ini, database)
 
     prices = options_full_data['LastPrice'].values
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     # print(get_option_data(ticker, database, ndays(database, 7)))
     # print(get_asset_prices(ticker, database, ndays(database, 7)))
     # measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
-    validate_heston_model(ticker, database, _ndays=1)
-    # measure(lambda: calibrate_kou_model(database, _ndays=7))
-    # validate_kou_model(database, _ndays=7)
+    # validate_heston_model(ticker, database, _ndays=1)
+    measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
+    validate_kou_model(ticker, database, _ndays=7)
 
