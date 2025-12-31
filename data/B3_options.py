@@ -109,9 +109,8 @@ def download_and_save_zipfile(file_code: str, save_path: str = None):
     }
     
     url = f'https://www.b3.com.br/pesquisapregao/download?filelist={file_code}.zip,'
-    print(url)
     try:
-        response = requests.get(url, headers=headers, timeout=7)
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         
         if save_path is None:
@@ -186,7 +185,7 @@ def unzip_file(zip_path: str, extract_to: str = None, remove_zip: bool = True):
 def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
     all_files = [os.path.join(root_path, filename) for filename in os.listdir(root_path) if filename.endswith('.csv') and 'Negociações' in filename]
     df_list = []
-    for file in all_files:
+    for file in all_files[:10]:
         try:
             df = pd.read_csv(file, sep=',', encoding='latin1', decimal='.')
             if df.empty:
@@ -241,8 +240,12 @@ def get_options_treated(database: str, output: str = '.'):
     try:
         negotiations = get_b3_info(database, output, 'negotiation')
         # print(negotiations)
+        if negotiations.empty:
+            return pd.DataFrame()
         products = get_b3_info(database, output, 'product')
         # print(products)
+        if products.empty:
+            return pd.DataFrame()
         products = products.merge(negotiations[['ID', 'Ticker']], left_on='ID ação', right_on='ID', how='left')
         products.rename(columns={'Ticker_x': 'Ticker', 'Ticker_y': 'Asset Ticker'}, inplace=True)
         final_df = negotiations.merge(products[['Ticker', 'Style', 'Type', 'Strike', 'Maturity', 'Asset Ticker']], on='Ticker', how='left')

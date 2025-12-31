@@ -2,6 +2,7 @@ from B3_options import get_options_treated
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+from time import sleep
 
 
 interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
@@ -32,17 +33,18 @@ def gen_date_list(ini_date: str, end_date: str):
 
 if __name__ == "__main__":
 
-  date_ini = '2025-01-01'
+  date_ini = '2020-01-01'
   date_end = '2026-01-01'
   # database = '20200901'
   output = 'Histórico B3'
 
   if os.path.exists(output) == False:
     os.mkdir(output)
-
+  
   databases = list(filter(lambda database: not  os.path.exists(f'{output}/Negociações {database}.csv'), gen_date_list(date_ini, date_end)))
   # databases = gen_date_list(date_ini, date_end)
   print(databases)
   for database in databases:
+    sleep(0.15)  # To avoid overloading the server with requests
     result = get_options_treated(database)
     if not result.empty:  result.to_csv(f'{output}/Negociações {database}.csv', index=False)
