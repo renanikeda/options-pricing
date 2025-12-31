@@ -57,7 +57,7 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, style: Op
         full_prices = pd.concat([full_prices, prices], ignore_index=True)
     full_prices.dropna(subset=['Strike'], inplace=True)
     full_prices['Days to Maturity'] = days_to_maturity(full_prices['TradeDate'].tolist(), full_prices['Maturity'].tolist())
-
+    full_prices = full_prices[full_prices['Days to Maturity'] > 0.0] 
     type_value = "CALL" if type == OptionType.CALL else "PUTT"
     full_prices = full_prices[full_prices['Type'] == type_value]
     full_prices = full_prices[full_prices['Style'] == style.value]

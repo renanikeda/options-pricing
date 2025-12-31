@@ -284,7 +284,7 @@ def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
         return 0
 
 def Upsilon(x, T, mu, sigma, lambd, eta1, eta2, p):
-    bound = 5
+    bound = 6
     n_vals = np.arange(0, bound)
     pin = np.exp(-lambd * T) * ((lambd * T) ** n_vals) / np.array([math.factorial(i) for i in n_vals])
     
@@ -333,6 +333,8 @@ def kou_option_price(S0: float, K: float, r: float, sigma: float, T: float,
     lambd (float): jump intensity
     option_type (OptionType): CALL or PUT
     """
+    # print("params: ", {"S0": S0, "K": K, "r": r, "sigma": sigma, "T": T, 
+    #                   "eta1": eta1, "eta2": eta2, "p": p, "lambd": lambd})
     csi = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
     lambd2 = lambd * (csi + 1)
     eta12 = eta1 - 1
