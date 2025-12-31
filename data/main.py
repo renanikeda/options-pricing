@@ -1,6 +1,6 @@
 from B3_options import get_options_treated
 import os
-import pandas as pd
+import subprocess
 from datetime import datetime, timedelta
 from time import sleep
 
@@ -30,11 +30,19 @@ def gen_date_list(ini_date: str, end_date: str):
 
     return date_list
 
+def compress_data():
+  command = r'tar -czvf "Histórico B3.tar.gz" "Histórico B3"'
+  result = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+  if result.returncode == 0:
+      print("Archive created successfully!")
+  else:
+      print(f"Error: {result.stderr}")
 
 if __name__ == "__main__":
 
-  date_ini = '2020-01-01'
-  date_end = '2026-01-01'
+  date_ini = '2019-01-01'
+  date_end = '2020-01-01'
   # database = '20200901'
   output = 'Histórico B3'
 
@@ -48,3 +56,4 @@ if __name__ == "__main__":
     sleep(0.15)  # To avoid overloading the server with requests
     result = get_options_treated(database)
     if not result.empty:  result.to_csv(f'{output}/Negociações {database}.csv', index=False)
+  compress_data()

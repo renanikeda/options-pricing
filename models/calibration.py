@@ -4,7 +4,7 @@ import numpy as np
 from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
 import pandas as pd
-from utils import options_data, gen_date_list, classify_option , OptionType, ndays, measure, get_prefixo_ticker
+from utils import options_data, gen_date_list, classify_option , OptionType, OptionStyle, ndays, measure, get_prefixo_ticker
 from typing import List, Dict, Callable
 from datetime import datetime
 import random
@@ -33,7 +33,7 @@ def squared_error(model, prices: List[float], params):
     return np.sum((model(params) - prices) ** 2) + penality
 
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str):
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     
@@ -53,9 +53,14 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str):
         prices = pd.read_csv(file_path) if os.path.exists(file_path) else pd.DataFrame()
         if prices.empty: continue
         prices = prices[prices['Ticker'].str.contains(get_prefixo_ticker(asset_ticker))]
+        prices['Asset Price'] = prices[prices['Ticker'] == asset_ticker]['LastPrice'].values[0]
         full_prices = pd.concat([full_prices, prices], ignore_index=True)
     full_prices.dropna(subset=['Strike'], inplace=True)
-    full_prices['Days to Maturity'] = days_to_maturity(full_prices['Data Base'].tolist(), full_prices['Maturity Date'].tolist())
+    full_prices['Days to Maturity'] = days_to_maturity(full_prices['TradeDate'].tolist(), full_prices['Maturity'].tolist())
+
+    type_value = "CALL" if type == OptionType.CALL else "PUTT"
+    full_prices = full_prices[full_prices['Type'] == type_value]
+    full_prices = full_prices[full_prices['Style'] == style.value]
     return full_prices
 
 
@@ -79,7 +84,7 @@ def get_asset_prices(asset_ticker: str, start_date: str, end_date: str, col: str
         if prices.empty: continue
         prices = prices[prices['Ticker'] == asset_ticker]
         full_prices = pd.concat([full_prices, prices], ignore_index=True)
-    full_prices = full_prices[['Data Base', col]]
+    full_prices = full_prices[['TradeDate', col]]
     full_prices.rename(columns={col: 'Asset Price'}, inplace=True)
     return full_prices
 
@@ -139,11 +144,12 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
 
     params = {
         "v0": {"x0": 0.1, "limits": [1e-3,0.5]},
-        "kappa": {"x0": 3, "limits": [1e-3,5]},
+        "kappa": {"x0": 0.5, "limits": [1e-3,3]},
         "theta": {"x0": 0.05, "limits": [1e-3,0.5]},
         "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
         "rho": {"x0": -0.8, "limits": [-1,1]},
     }
+
     data_ini = ndays(database, -1*_ndays)
     print('Dates: ', data_ini, database)
     initial_params = [param["x0"] for key, param in params.items()]
@@ -214,9 +220,11 @@ def calibrate_kou_model(database: str = "2020-09-10", _ndays = 5):
     save_params("kou", database, result_params)
 
 if __name__ == "__main__":
-    database = '2025-05-01'
-    measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
-    validate_heston_model(database, _ndays=1)
+    database = '2025-05-02'
+    # print(get_option_data("VALE3", database, ndays(database, 7)))
+    # print(get_asset_prices("VALE3", database, ndays(database, 7)))
+    # measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
+    # validate_heston_model(database, _ndays=1)
     # measure(lambda: calibrate_kou_model(database, _ndays=7))
     # validate_kou_model(database, _ndays=7)
 
