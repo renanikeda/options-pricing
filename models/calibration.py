@@ -127,10 +127,8 @@ def save_params(model: str, database: str, params: Dict):
 def validate_heston_model(database: str, _ndays: int = 5):
     params = load_params("heston", database)
     data_end = ndays(database, _ndays)
-    options_b3 = get_option_data("VALE", database, data_end)
-    asset_prices = get_asset_prices("VALE3", database, data_end)
-    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
-
+    options_full_data = get_option_data("VALE", database, data_end)
+    
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     listified_model = listify_model(heston_price, market_params, list(params.keys()))
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
@@ -155,9 +153,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
 
-    options_b3 = get_option_data(ticker, data_ini, database)
-    asset_prices = get_asset_prices(ticker, data_ini, database)
-    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
+    options_full_data = get_option_data(ticker, data_ini, database)
 
     prices = options_full_data['LastPrice'].values
 
@@ -175,9 +171,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
 def validate_kou_model(database: str, _ndays: int = 5):
     params = load_params("kou", database)
     data_end = ndays(database, _ndays)
-    options_b3 = get_option_data("VALE", database, data_end)
-    asset_prices = get_asset_prices("VALE3", database, data_end)
-    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
+    options_full_data = get_option_data("VALE", database, data_end)
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'T': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     listified_model = listify_model(kou_option_price, market_params, list(params.keys()))
@@ -203,9 +197,7 @@ def calibrate_kou_model(database: str = "2020-09-10", _ndays = 5):
 
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
-    options_b3 = get_option_data("VALE", data_ini, database)
-    asset_prices = get_asset_prices("VALE3", data_ini, database)
-    options_full_data = filter_calls(options_b3.join(asset_prices.set_index('Data Base'), on='Data Base'))
+    options_full_data = get_option_data("VALE", data_ini, database)
 
     prices = options_full_data['LastPrice'].values
 
@@ -223,8 +215,8 @@ if __name__ == "__main__":
     database = '2025-05-02'
     # print(get_option_data("VALE3", database, ndays(database, 7)))
     # print(get_asset_prices("VALE3", database, ndays(database, 7)))
-    # measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
-    # validate_heston_model(database, _ndays=1)
+    measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
+    validate_heston_model(database, _ndays=1)
     # measure(lambda: calibrate_kou_model(database, _ndays=7))
     # validate_kou_model(database, _ndays=7)
 
