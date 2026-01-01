@@ -69,7 +69,46 @@ def black_scholes_monte_carlo(S, K, T, r=0.07, sigma=0.2, option_type=OptionType
     
     return option_price
 
-def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
+def black_scholes_vega(S, K, r, sigma, T):
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    return S * np.sqrt(T) * norm.pdf(d1)
+
+def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, sigma_0: float = 0.25, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
+    """
+    Calculate the implied volatility using the Black-Scholes-Merton model.
+
+    Parameters:
+    Price_mkt (float): Market price of the option
+    S0 (float): Current stock price
+    sigma_0 (float): Volatility initial guess
+    K (float): Strike price
+    T (float): Time to expiration (in years)
+    r (float): Risk-free interest rate (annualized)
+
+    Returns:
+    float: The implied volatility
+    """
+
+    epsilon = 1e-6
+    error = 1.0
+    iteration = 0
+    imp_vol = sigma_0
+    
+    while iteration < max_iter and error > epsilon:
+        g = price_mkt - black_scholes(S0, K, T, r, imp_vol, option_type)
+        vega = black_scholes_vega(S0, K, r, imp_vol, T)
+        if vega < 1e-5:
+            break
+        imp_vol_new = imp_vol - (g / vega)
+        error = abs(imp_vol_new - imp_vol)
+        imp_vol = max(imp_vol_new, tol)
+        if error < tol:
+            return imp_vol
+        iteration += 1
+    raise RuntimeError("Newton-Raphson não convergiu")
+
+
+def implied_vol_bissection(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
     """
     Calculate the implied volatility using the bisection method.
     Parameters:
@@ -100,6 +139,30 @@ def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1,
 
     raise RuntimeError("Bisseção não convergiu")
 
+def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
+    """
+    Calculate the implied volatility using the bisection method.
+    Parameters:
+        price_mkt (float): Market price of the option
+        S0 (float): Current stock price
+        K (float): Strike price
+        T (float): Time to expiration (in years)
+        r (float): Risk-free interest rate (annualized)
+        vol_low (float): Lower bound for volatility
+        vol_high (float): Upper bound for volatility
+        option_type (enum): OptionType.CALL for a call option, OptionType.PUT for a put option
+        tol (float): Tolerance for convergence
+        max_iter (int): Maximum number of iterations
+    Returns:
+        float: The implied volatility
+    """
+    try:
+        print('Newton-Raphson Method')
+        return implied_vol_newton_raphson(price_mkt, S0, K, T, r, sigma_0=0.2, option_type=option_type, tol=tol, max_iter=max_iter)
+    except RuntimeError:
+        print('Bisection Method')
+        return implied_vol_bissection(price_mkt, S0, K, T, r, vol_low, vol_high, option_type, tol, max_iter)
+
 if __name__ == "__main__":
     # S0 = 100
     # sigma = 0.16
@@ -121,7 +184,7 @@ if __name__ == "__main__":
     # print(f'Monte Carlo Put Option Price: {MC_put:.2f}')
     # print(f'\nCall Price Difference: {abs(BSM_call - MC_call):.4f}')
     # print(f'Put Price Difference: {abs(BSM_put - MC_put):.4f}')
-    # print(imp_vol(4.96, 30.66, 25.97, 16/252))
-    print(implied_vol(4.96, 30.66, 25.97, 16/252, 0.1))
+    # print(implied_vol(4.96, 30.66, 25.97, 16/252, 0.1))
+    print(implied_vol(5.2, 30.47, 26.72, 96/252, 0.1))
 
 
