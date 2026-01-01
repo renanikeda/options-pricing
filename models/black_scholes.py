@@ -69,26 +69,59 @@ def black_scholes_monte_carlo(S, K, T, r=0.07, sigma=0.2, option_type=OptionType
     
     return option_price
 
+def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
+    """
+    Calculate the implied volatility using the bisection method.
+    Parameters:
+        price_mkt (float): Market price of the option
+        S0 (float): Current stock price
+        K (float): Strike price
+        T (float): Time to expiration (in years)
+        r (float): Risk-free interest rate (annualized)
+        vol_low (float): Lower bound for volatility
+        vol_high (float): Upper bound for volatility
+        option_type (enum): OptionType.CALL for a call option, OptionType.PUT for a put option
+        tol (float): Tolerance for convergence
+        max_iter (int): Maximum number of iterations
+    Returns:
+        float: The implied volatility
+    """
+    for _ in range(max_iter):
+        vol_mid = 0.5 * (vol_low + vol_high)
+        price_mid = black_scholes(S0, K, T, r, vol_mid, option_type)
+
+        if abs(price_mid - price_mkt) < tol:
+            return vol_mid
+
+        if price_mid > price_mkt:
+            vol_high = vol_mid
+        else:
+            vol_low = vol_mid
+
+    raise RuntimeError("Bisseção não convergiu")
+
 if __name__ == "__main__":
-    S0 = 100
-    sigma = 0.16
-    r = 0.05
-    T = 0.5
-    K = 98
+    # S0 = 100
+    # sigma = 0.16
+    # r = 0.05
+    # T = 0.5
+    # K = 98
 
-    BSM_call = black_scholes(S0, K, T, r, sigma, OptionType.CALL)
-    BSM_put = black_scholes(S0, K, T, r, sigma, OptionType.PUT)
+    # BSM_call = black_scholes(S0, K, T, r, sigma, OptionType.CALL)
+    # BSM_put = black_scholes(S0, K, T, r, sigma, OptionType.PUT)
 
-    print(f'BSM Call Option Price: {BSM_call:.2f}')
-    print(f'BSM Put Option Price: {BSM_put:.2f}')
+    # print(f'BSM Call Option Price: {BSM_call:.2f}')
+    # print(f'BSM Put Option Price: {BSM_put:.2f}')
     
-    # Monte Carlo pricing
-    MC_call = black_scholes_monte_carlo(S0, K, T, r, sigma, OptionType.CALL, num_simulations=30_000, seed=42)
-    MC_put = black_scholes_monte_carlo(S0, K, T, r, sigma, OptionType.PUT, num_simulations=30_000, seed=42)
+    # # Monte Carlo pricing
+    # MC_call = black_scholes_monte_carlo(S0, K, T, r, sigma, OptionType.CALL, num_simulations=30_000, seed=42)
+    # MC_put = black_scholes_monte_carlo(S0, K, T, r, sigma, OptionType.PUT, num_simulations=30_000, seed=42)
     
-    print(f'\nMonte Carlo Call Option Price: {MC_call:.2f}')
-    print(f'Monte Carlo Put Option Price: {MC_put:.2f}')
-    print(f'\nCall Price Difference: {abs(BSM_call - MC_call):.4f}')
-    print(f'Put Price Difference: {abs(BSM_put - MC_put):.4f}')
+    # print(f'\nMonte Carlo Call Option Price: {MC_call:.2f}')
+    # print(f'Monte Carlo Put Option Price: {MC_put:.2f}')
+    # print(f'\nCall Price Difference: {abs(BSM_call - MC_call):.4f}')
+    # print(f'Put Price Difference: {abs(BSM_put - MC_put):.4f}')
+    # print(imp_vol(4.96, 30.66, 25.97, 16/252))
+    print(implied_vol(4.96, 30.66, 25.97, 16/252, 0.1))
 
 
