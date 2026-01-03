@@ -2,6 +2,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from scipy.stats import norm
 from brownian_motion import geometric_brownian_motion
+from utils import get_option_data
 
 from utils import OptionType
 
@@ -73,40 +74,56 @@ def black_scholes_vega(S, K, r, sigma, T):
     d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     return S * np.sqrt(T) * norm.pdf(d1)
 
-def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, sigma_0: float = 0.25, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
+def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float, 
+                               r: float = 0.1, sigma_0: float = 0.25, 
+                               option_type: OptionType = OptionType.CALL, 
+                               tol: float = 1e-6, max_iter: int = 100) -> float:
     """
-    Calculate the implied volatility using the Black-Scholes-Merton model.
+    Calculate the implied volatility using Newton-Raphson method.
 
     Parameters:
-    Price_mkt (float): Market price of the option
+    price_mkt (float): Market price of the option
     S0 (float): Current stock price
-    sigma_0 (float): Volatility initial guess
     K (float): Strike price
     T (float): Time to expiration (in years)
     r (float): Risk-free interest rate (annualized)
+    sigma_0 (float): Initial volatility guess
+    option_type (OptionType): Type of option (CALL or PUT)
+    tol (float): Tolerance for convergence
+    max_iter (int): Maximum number of iterations
 
     Returns:
     float: The implied volatility
-    """
-
-    epsilon = 1e-6
-    error = 1.0
-    iteration = 0
-    imp_vol = sigma_0
     
-    while iteration < max_iter and error > epsilon:
-        g = price_mkt - black_scholes(S0, K, T, r, imp_vol, option_type)
-        vega = black_scholes_vega(S0, K, r, imp_vol, T)
-        if vega < 1e-5:
-            break
-        imp_vol_new = imp_vol - (g / vega)
-        error = abs(imp_vol_new - imp_vol)
-        imp_vol = max(imp_vol_new, tol)
-        if error < tol:
-            return imp_vol
-        iteration += 1
-    raise RuntimeError("Newton-Raphson não convergiu")
-
+    Raises:
+    RuntimeError: If Newton-Raphson does not converge
+    """
+    
+    # Initialize
+    sigma = sigma_0
+    
+    for iteration in range(max_iter):
+        price_theo = black_scholes(S0, K, T, r, sigma, option_type)
+        
+        diff = price_theo - price_mkt
+        
+        if abs(diff) < tol:
+            return sigma
+        vega = black_scholes_vega(S0, K, r, sigma, T)
+        
+        if vega < 1e-6:
+            raise RuntimeError(f"Vega too small ({vega:.2e}) at iteration {iteration}")
+        
+        sigma_new = sigma - diff / vega
+        
+        if sigma_new <= 0:
+            sigma_new = sigma / 2  # Halve the volatility instead of going negative
+        
+        if abs(sigma_new - sigma) < tol:
+            return sigma_new
+        
+        sigma = sigma_new
+    raise RuntimeError(f"Newton-Raphson did not converge after {max_iter} iterations. Last sigma: {sigma:.6f}")
 
 def implied_vol_bissection(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
     """
@@ -137,7 +154,7 @@ def implied_vol_bissection(price_mkt: float, S0: float, K: float, T: float, r: f
         else:
             vol_low = vol_mid
 
-    raise RuntimeError("Bisseção não convergiu")
+    return np.nan
 
 def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
     """
@@ -157,11 +174,31 @@ def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1,
         float: The implied volatility
     """
     try:
-        print('Newton-Raphson Method')
         return implied_vol_newton_raphson(price_mkt, S0, K, T, r, sigma_0=0.2, option_type=option_type, tol=tol, max_iter=max_iter)
     except RuntimeError:
-        print('Bisection Method')
         return implied_vol_bissection(price_mkt, S0, K, T, r, vol_low, vol_high, option_type, tol, max_iter)
+    
+def test_smile():
+    database = "2025-05-02"
+    maturity = "2025-06-20"
+    ticker = "PETR4"
+    df = get_option_data(ticker, database, database)
+    df = df[df['Maturity'] == maturity]
+    df = df[df['Asset Ticker'] == ticker]
+    imp_vols = []
+    for row in df.itertuples():
+        imp_vol = implied_vol(row.LastPrice, row._16, row.Strike, row._17, r=0.1, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
+        imp_vols.append(imp_vol)
+
+    df['Implied Volatility'] = imp_vols
+    plt.figure(figsize=(10, 6))
+    plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
+    plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
+    plt.xlabel('Strike Price')
+    plt.ylabel('Implied Volatility')
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 if __name__ == "__main__":
     # S0 = 100
@@ -185,6 +222,6 @@ if __name__ == "__main__":
     # print(f'\nCall Price Difference: {abs(BSM_call - MC_call):.4f}')
     # print(f'Put Price Difference: {abs(BSM_put - MC_put):.4f}')
     # print(implied_vol(4.96, 30.66, 25.97, 16/252, 0.1))
-    print(implied_vol(5.2, 30.47, 26.72, 96/252, 0.1))
-
-
+    
+    # print(implied_vol(5.2, 30.47, 26.72, 96/252, 0.1))
+    test_smile()

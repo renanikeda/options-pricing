@@ -3,13 +3,9 @@ from functools import partial
 import numpy as np
 from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
-import pandas as pd
-from utils import options_data, gen_date_list, classify_option , OptionType, OptionStyle, ndays, measure, get_prefixo_ticker
+from utils import ndays, measure, get_option_data, save_params, load_params
 from typing import List, Dict, Callable
-from datetime import datetime
 import random
-import json
-import os
 
 def squared_error(model, prices: List[float], params):
     """
@@ -32,97 +28,11 @@ def squared_error(model, prices: List[float], params):
     # print(prices[:5])
     return np.sum((model(params) - prices) ** 2) + penality
 
-
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
-    """
-    Placeholder function to retrieve option prices.
-    
-    Parameters:
-    ticker (str): option ticker symbol
-    start_date (str): starat date for data retrieval %Y-%m-%d
-    end_date (str): end date for data retrieval %Y-%m-%d
-    
-    Returns:
-    np.ndarray: array of option prices
-    """
-    
-    databases = gen_date_list(start_date, end_date)
-    full_prices = pd.DataFrame()
-    for database in databases:
-        file_path = options_data(database.replace('-', ''))
-        prices = pd.read_csv(file_path) if os.path.exists(file_path) else pd.DataFrame()
-        if prices.empty: continue
-        prices = prices[prices['Ticker'].str.contains(get_prefixo_ticker(asset_ticker))]
-        prices['Asset Price'] = prices[prices['Ticker'] == asset_ticker]['LastPrice'].values[0]
-        full_prices = pd.concat([full_prices, prices], ignore_index=True)
-    full_prices.dropna(subset=['Strike'], inplace=True)
-    full_prices['Days to Maturity'] = days_to_maturity(full_prices['TradeDate'].tolist(), full_prices['Maturity'].tolist())
-    full_prices = full_prices[full_prices['Days to Maturity'] > 0.0] 
-    type_value = "CALL" if type == OptionType.CALL else "PUTT"
-    full_prices = full_prices[full_prices['Type'] == type_value]
-    full_prices = full_prices[full_prices['Style'] == style.value]
-    return full_prices
-
-
-def get_asset_prices(asset_ticker: str, start_date: str, end_date: str, col: str = 'LastPrice') -> float:
-    """
-    Placeholder function to retrieve option prices.
-    
-    Parameters:
-    asset_ticker (str): ticker name
-    date (str): start date for price retrieval %Y-%m-%d 
-    col (str): column name to retrieve the price from, default is 'LastPrice'
-    Returns:
-    float: asset price
-    """
-    
-    databases = gen_date_list(start_date, end_date)
-    full_prices = pd.DataFrame()
-    for database in databases:
-        file_path = options_data(database.replace('-', ''))
-        prices = pd.read_csv(file_path) if os.path.exists(file_path) else pd.DataFrame()
-        if prices.empty: continue
-        prices = prices[prices['Ticker'] == asset_ticker]
-        full_prices = pd.concat([full_prices, prices], ignore_index=True)
-    full_prices = full_prices[['TradeDate', col]]
-    full_prices.rename(columns={col: 'Asset Price'}, inplace=True)
-    return full_prices
-
-
-def days_to_maturity(trade_date: List[str], maturity_date: List[str]):
-    date_format = "%Y-%m-%d"
-    trade_dates = [datetime.strptime(date, date_format) for date in trade_date]
-    maturity_dates = [datetime.strptime(date, date_format) for date in maturity_date]
-    return np.array([(maturity - trade).days / 365 for trade, maturity in zip(trade_dates, maturity_dates)])
-
-def filter_calls(pricing_table: pd.DataFrame) -> pd.DataFrame:
-    return pricing_table[pricing_table['Ticker'].apply(classify_option) == OptionType.CALL]
-
 def listify_model(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str]) -> Callable:
     def func(calibrating_params):
         named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, calibrating_params)}
         return [partial(model, **params)(**named_calibrating_params) for params in market_params]
     return func
-
-def load_params(model: str, database: str) -> Dict:
-    if not os.path.exists("calibrated_params.json"):
-        return {}
-    with open("calibrated_params.json", "r") as f:
-        all_params = json.load(f)
-        return all_params.get(model, {}).get(database, {})
-    
-def save_params(model: str, database: str, params: Dict):
-    existed_params = {}
-    if os.path.exists("calibrated_params.json"):
-        with open("calibrated_params.json", "r") as f:
-            existed_params = json.load(f)
-    if model not in existed_params:
-        existed_params[model] = {}
-    existed_params[model][database] = params
-
-    with open("calibrated_params.json", "w") as f:
-        json.dump(existed_params, f, indent=2)    
-
 
 def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("heston", database)
@@ -215,9 +125,8 @@ if __name__ == "__main__":
     database = '2025-05-02'
     ticker = "VALE3"
     # print(get_option_data(ticker, database, ndays(database, 7)))
-    # print(get_asset_prices(ticker, database, ndays(database, 7)))
-    # measure(lambda: calibrate_heston_model('VALE3', database, _ndays=7))
-    # validate_heston_model(ticker, database, _ndays=1)
-    measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
+    # measure(lambda: calibrate_heston_model(ticker, database, _ndays=7))
+    validate_heston_model(ticker, database, _ndays=1)
+    # measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
     validate_kou_model(ticker, database, _ndays=7)
 
