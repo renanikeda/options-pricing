@@ -2,7 +2,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from typing import Tuple
 from brownian_motion import cov_brownian_motion_diff
-from utils import OptionType, measure
+from black_scholes import implied_vol
+from utils import OptionType, measure, get_option_data, load_params
 from scipy.integrate import quad
 import QuantLib as ql
 
@@ -324,7 +325,6 @@ def test_heston_option_pricing() -> None:
     kappa = 0.5
     theta = 0.01
     sigma = 0.13
-    lambd = 0.575
     r = 0.1
     T = 1.0
     
@@ -335,11 +335,36 @@ def test_heston_option_pricing() -> None:
     call_price_ql = heston_price_ql( S0, K, v0, kappa, theta, sigma, rho, T, r )
     print(f"Call option price ql: {call_price_ql:.4f}")
 
+def test_smile():
+    database = "2025-05-02"
+    maturity = "2025-06-20"
+    ticker = "PETR4"
+    df = get_option_data(ticker, database, database)
+    df = df[df['Maturity'] == maturity]
+    df = df[df['Asset Ticker'] == ticker]
+    imp_vols = []
+    for row in df.itertuples():
+        params = load_params("heston", database)
+        price_heston = heston_price(**{ 'S0': row._16, 'K': row.Strike, 'r': 0.10, 'tau': row._17 }, **params)
+        print(f"Heston price: {price_heston:.2f}, Market price: {row.LastPrice}")
+        imp_vol = implied_vol(price_heston, row._16, row.Strike, row._17, r=0.1, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
+        imp_vols.append(imp_vol)
+
+    df['Implied Volatility'] = imp_vols
+    plt.figure(figsize=(10, 6))
+    plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
+    plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
+    plt.xlabel('Strike Price')
+    plt.ylabel('Implied Volatility')
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 if __name__ == "__main__":
     print('Testing heston')
     # test_heston_model()
     # measure(test_heston_option_pricing_mc)
-    measure(test_heston_option_pricing)
+    # measure(test_heston_option_pricing)
+    test_smile()
     

@@ -2,6 +2,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from scipy.stats import norm
 from brownian_motion import geometric_brownian_motion
+from utils import get_option_data
 
 from utils import OptionType
 
@@ -137,7 +138,7 @@ def implied_vol_bissection(price_mkt: float, S0: float, K: float, T: float, r: f
         else:
             vol_low = vol_mid
 
-    raise RuntimeError("Bisseção não convergiu")
+    return np.nan
 
 def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
     """
@@ -157,11 +158,31 @@ def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1,
         float: The implied volatility
     """
     try:
-        print('Newton-Raphson Method')
         return implied_vol_newton_raphson(price_mkt, S0, K, T, r, sigma_0=0.2, option_type=option_type, tol=tol, max_iter=max_iter)
     except RuntimeError:
-        print('Bisection Method')
         return implied_vol_bissection(price_mkt, S0, K, T, r, vol_low, vol_high, option_type, tol, max_iter)
+    
+def test_smile():
+    database = "2025-05-02"
+    maturity = "2025-06-20"
+    ticker = "PETR4"
+    df = get_option_data(ticker, database, database)
+    df = df[df['Maturity'] == maturity]
+    df = df[df['Asset Ticker'] == ticker]
+    imp_vols = []
+    for row in df.itertuples():
+        imp_vol = implied_vol(row.LastPrice, row._16, row.Strike, row._17, r=0.1, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
+        imp_vols.append(imp_vol)
+
+    df['Implied Volatility'] = imp_vols
+    plt.figure(figsize=(10, 6))
+    plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
+    plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
+    plt.xlabel('Strike Price')
+    plt.ylabel('Implied Volatility')
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 if __name__ == "__main__":
     # S0 = 100
@@ -185,6 +206,6 @@ if __name__ == "__main__":
     # print(f'\nCall Price Difference: {abs(BSM_call - MC_call):.4f}')
     # print(f'Put Price Difference: {abs(BSM_put - MC_put):.4f}')
     # print(implied_vol(4.96, 30.66, 25.97, 16/252, 0.1))
-    print(implied_vol(5.2, 30.47, 26.72, 96/252, 0.1))
-
-
+    
+    # print(implied_vol(5.2, 30.47, 26.72, 96/252, 0.1))
+    test_smile()
