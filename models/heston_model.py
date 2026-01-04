@@ -9,7 +9,7 @@ import QuantLib as ql
 import pandas as pd
 
 def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float, 
-                 sigma: float, r: float, T: float, dt: float, M: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                 sigma: float, r: float, tau: float, dt: float, M: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Simulate the Heston stochastic volatility model.
     
@@ -21,18 +21,18 @@ def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float,
     theta (float): long-term variance mean
     sigma (float): volatility of variance (vol of vol)
     r (float): risk-free rate
-    T (float): time horizon
+    tau (float): time horizon
     dt (float): time step
     M (int): number of simulation paths
     
     Returns:
     Tuple[np.ndarray, np.ndarray, np.ndarray]: (time grid, stock prices, variance paths)
     """
-    N = int(T / dt)
-    t = np.linspace(0, T, N + 1)
+    N = int(tau / dt)
+    t = np.linspace(0, tau, N + 1)
     
     # Generate correlated Brownian motions
-    _, dW = cov_brownian_motion_diff(T, dt, rho, 2, M)
+    _, dW = cov_brownian_motion_diff(tau, dt, rho, 2, M)
     
     S = np.full(shape=(N+1, M), fill_value=float(S0))
     v = np.full(shape=(N+1, M), fill_value=float(v0))
@@ -46,7 +46,7 @@ def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float,
     return t, S, v
 
 def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: float, 
-                          theta: float, sigma: float, r: float, T: float, dt: float, 
+                          theta: float, sigma: float, r: float, tau: float, dt: float, 
                           M: int, option_type: OptionType = OptionType.CALL) -> float:
     """
     Price European option using Monte Carlo simulation with Heston model.
@@ -60,7 +60,7 @@ def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: fl
     theta (float): long-term variance mean
     sigma (float): volatility of variance
     r (float): risk-free rate
-    T (float): time to maturity
+    tau (float): time to maturity
     dt (float): time step
     M (int): number of Monte Carlo simulations
     option_type (OptionType): 'CALL' or 'PUT'
@@ -70,7 +70,7 @@ def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: fl
     """
     kappa2 = kappa
     theta2 = (kappa * theta) / kappa2
-    _, S, _ = heston_model(S0, v0, rho, kappa2, theta2, sigma, r, T, dt, M)
+    _, S, _ = heston_model(S0, v0, rho, kappa2, theta2, sigma, r, tau, dt, M)
     S_T = S[-1, :]  # Final stock prices
     
     # Calculate payoff
@@ -82,12 +82,12 @@ def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: fl
         raise ValueError("option_type must be 'call' or 'put'")
     
     # Discount expected payoff
-    option_price = np.exp(-r * T) * np.mean(payoffs)
+    option_price = np.exp(-r * tau) * np.mean(payoffs)
     return option_price
 
 
 def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, theta: float, 
-                           sigma: float, rho: float, T: float, r: float, j: int) -> complex:
+                           sigma: float, rho: float, tau: float, r: float, j: int) -> complex:
     """
     Calculate the characteristic function for the Heston model.
     
@@ -104,7 +104,7 @@ def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, th
     theta (float): long-term variance mean
     sigma (float): volatility of variance (vol of vol)
     rho (float): correlation between stock and variance Brownian motions
-    T (float): time to maturity
+    tau (float): time to maturity
     r (float): risk-free rate
     j (int): 1 or 2, determines the form of the characteristic function
 
@@ -126,9 +126,9 @@ def characteristic_function(phi: complex, S0: float, v0: float, kappa: float, th
     if np.real(d) < 0:
         d = -d
     g = (b - rspi - d)/(b - rspi + d)
-    exp_dT = np.exp(-d*T)
+    exp_dT = np.exp(-d*tau)
 
-    C = r * phi * 1j * T + (a / sigma_2) * ((b - rspi - d)*T - 2*np.log((1 - g*exp_dT)/(1 - g)))
+    C = r * phi * 1j * tau + (a / sigma_2) * ((b - rspi - d)*tau - 2*np.log((1 - g*exp_dT)/(1 - g)))
 
     D = ((b - rspi - d)/sigma_2) * ((1 - exp_dT)/(1 - g*exp_dT))
     
@@ -275,13 +275,13 @@ def test_heston_model() -> None:
     kappa = 3.0
     theta = 0.04
     sigma = 0.6
-    T = 1.0
+    tau = 1.0
     dt = 0.001
     M = 5
     r = 0.02
 
     t, S, v = heston_model(S0=S0, v0=v0, rho=rho, kappa=kappa, theta=theta, 
-                          sigma=sigma, r=r, T=T, dt=dt, M=M)
+                          sigma=sigma, r=r, tau=tau, dt=dt, M=M)
     risk_free_rate = np.exp(r * t) * S0
 
     # Plot stock price paths
@@ -318,18 +318,18 @@ def test_heston_option_pricing_mc() -> None:
     theta = 0.0398
     sigma = 0.3
     r = 0.03
-    T = 1.0
+    tau = 1.0
     dt = 0.001
-    M = 250_000
+    M = 100_000
     
-    call_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, T, dt, M, OptionType.CALL)
-    # put_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, T, dt, M, OptionType.CALL)
+    call_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, tau, dt, M, OptionType.CALL)
+    # put_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, tau, dt, M, OptionType.CALL)
     
     print(f"Call option price: {call_price:.4f}")
     # print(f"Put option price: {put_price:.4f}")
     
     # Verify put-call parity
-    # pv_strike = K * np.exp(-r * T)
+    # pv_strike = K * np.exp(-r * tau)
     # parity_diff = call_price - put_price - (S0 - pv_strike)
     # print(f"Put-call parity difference: {parity_diff:.4f}")
 
@@ -343,13 +343,13 @@ def test_heston_option_pricing() -> None:
     theta = 0.01
     sigma = 0.13
     r = 0.1
-    T = 1.0
+    tau = 1.0
     
-    call_price = heston_price( S0, K, v0, kappa, theta, sigma, rho, T, r )
+    call_price = heston_price( S0, K, v0, kappa, theta, sigma, rho, tau, r )
     
     print(f"Call option price: {call_price:.4f}")
 
-    call_price_ql = heston_price_ql( S0, K, v0, kappa, theta, sigma, rho, T, r )
+    call_price_ql = heston_price_ql( S0, K, v0, kappa, theta, sigma, rho, tau, r )
     print(f"Call option price ql: {call_price_ql:.4f}")
 
 def test_smile():
@@ -370,9 +370,8 @@ def test_smile():
 
 
 if __name__ == "__main__":
-    print('Testing heston')
-    # test_heston_model()
+    test_heston_model()
     # measure(test_heston_option_pricing_mc)
-    # measure(test_heston_option_pricing)
+    measure(test_heston_option_pricing)
     test_smile()
     

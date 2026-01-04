@@ -2,18 +2,17 @@ from matplotlib import pyplot as plt
 import numpy as np
 from scipy.stats import norm
 from brownian_motion import geometric_brownian_motion
-from utils import get_option_data
+from utils import get_option_data, OptionType
+import pandas as pd
 
-from utils import OptionType
-
-def black_scholes(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL):
+def black_scholes(S, K, tau, r=0.07, sigma=0.2, option_type=OptionType.CALL):
     """
     Calculates the Black-Scholes-Merton option price.
 
     Parameters:
     S (float): Current stock price
     K (float): Strike price
-    T (float): Time to expiration (in years)
+    tau (float): Time to expiration (in years)
     r (float): Risk-free interest rate (annualized)
     sigma (float): Volatility of the underlying asset (annualized)
     option_type (enum): 'call' for a call option, 'put' for a put option
@@ -22,24 +21,24 @@ def black_scholes(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL):
     float: The calculated option price
     """
 
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * tau) / (sigma * np.sqrt(tau))
+    d2 = d1 - sigma * np.sqrt(tau)
 
     if option_type == OptionType.CALL:
-        return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+        return S * norm.cdf(d1) - K * np.exp(-r * tau) * norm.cdf(d2)
     elif option_type == OptionType.PUT:
-        return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+        return K * np.exp(-r * tau) * norm.cdf(-d2) - S * norm.cdf(-d1)
     else:
         raise ValueError("option_type must be 'call' or 'put'")
 
-def black_scholes_monte_carlo(S, K, T, r=0.07, sigma=0.2, option_type=OptionType.CALL, num_simulations=100000, seed=None):
+def black_scholes_monte_carlo(S, K, tau, r=0.07, sigma=0.2, option_type=OptionType.CALL, num_simulations=100000, seed=None):
     """
     Calculates Black-Scholes option price using Monte Carlo simulation.
 
     Parameters:
     S (float): Current stock price
     K (float): Strike price
-    T (float): Time to expiration (in years)
+    tau (float): Time to expiration (in years)
     r (float): Risk-free interest rate (annualized)
     sigma (float): Volatility of the underlying asset (annualized)
     option_type (enum): OptionType.CALL for a call option, OptionType.PUT for a put option
@@ -54,8 +53,8 @@ def black_scholes_monte_carlo(S, K, T, r=0.07, sigma=0.2, option_type=OptionType
     
     # Generate random price paths using Geometric Brownian Motion
     # Z = np.random.standard_normal(num_simulations)
-    # ST = S * np.exp((r - 0.5 * sigma**2) * T + sigma * np.sqrt(T) * Z)
-    _, S = geometric_brownian_motion(S0=S, T=T, dt=T, r=r, sigma=sigma, M=num_simulations)
+    # ST = S * np.exp((r - 0.5 * sigma**2) * tau + sigma * np.sqrt(tau) * Z)
+    _, S = geometric_brownian_motion(S0=S, tau=tau, dt=tau, r=r, sigma=sigma, M=num_simulations)
     ST = S[-1, :]
     # Calculate payoffs
     if option_type == OptionType.CALL:
@@ -66,15 +65,15 @@ def black_scholes_monte_carlo(S, K, T, r=0.07, sigma=0.2, option_type=OptionType
         raise ValueError("option_type must be OptionType.CALL or OptionType.PUT")
     
     # Discount the average payoff to present value
-    option_price = np.exp(-r * T) * np.mean(payoffs)
+    option_price = np.exp(-r * tau) * np.mean(payoffs)
     
     return option_price
 
-def black_scholes_vega(S, K, r, sigma, T):
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    return S * np.sqrt(T) * norm.pdf(d1)
+def black_scholes_vega(S, K, r, sigma, tau):
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * tau) / (sigma * np.sqrt(tau))
+    return S * np.sqrt(tau) * norm.pdf(d1)
 
-def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float, 
+def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, tau: float, 
                                r: float = 0.1, sigma_0: float = 0.25, 
                                option_type: OptionType = OptionType.CALL, 
                                tol: float = 1e-6, max_iter: int = 100) -> float:
@@ -85,7 +84,7 @@ def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float,
     price_mkt (float): Market price of the option
     S0 (float): Current stock price
     K (float): Strike price
-    T (float): Time to expiration (in years)
+    tau (float): Time to expiration (in years)
     r (float): Risk-free interest rate (annualized)
     sigma_0 (float): Initial volatility guess
     option_type (OptionType): Type of option (CALL or PUT)
@@ -103,13 +102,13 @@ def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float,
     sigma = sigma_0
     
     for iteration in range(max_iter):
-        price_theo = black_scholes(S0, K, T, r, sigma, option_type)
+        price_theo = black_scholes(S0, K, tau, r, sigma, option_type)
         
         diff = price_theo - price_mkt
         
         if abs(diff) < tol:
             return sigma
-        vega = black_scholes_vega(S0, K, r, sigma, T)
+        vega = black_scholes_vega(S0, K, r, sigma, tau)
         
         if vega < 1e-8:
             raise RuntimeError(f"Vega too small ({vega:.2e}) at iteration {iteration}")
@@ -125,14 +124,14 @@ def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float,
         sigma = sigma_new
     raise RuntimeError(f"Newton-Raphson did not converge after {max_iter} iterations. Last sigma: {sigma:.6f}")
 
-def implied_vol_bissection(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
+def implied_vol_bissection(price_mkt: float, S0: float, K: float, tau: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
     """
     Calculate the implied volatility using the bisection method.
     Parameters:
         price_mkt (float): Market price of the option
         S0 (float): Current stock price
         K (float): Strike price
-        T (float): Time to expiration (in years)
+        tau (float): Time to expiration (in years)
         r (float): Risk-free interest rate (annualized)
         vol_low (float): Lower bound for volatility
         vol_high (float): Upper bound for volatility
@@ -144,7 +143,7 @@ def implied_vol_bissection(price_mkt: float, S0: float, K: float, T: float, r: f
     """
     for _ in range(max_iter):
         vol_mid = 0.5 * (vol_low + vol_high)
-        price_mid = black_scholes(S0, K, T, r, vol_mid, option_type)
+        price_mid = black_scholes(S0, K, tau, r, vol_mid, option_type)
 
         if abs(price_mid - price_mkt) < tol:
             return vol_mid
@@ -156,14 +155,14 @@ def implied_vol_bissection(price_mkt: float, S0: float, K: float, T: float, r: f
 
     return np.nan
 
-def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
+def implied_vol(price_mkt: float, S0: float, K: float, tau: float, r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, option_type: OptionType = OptionType.CALL, tol: float = 1e-6, max_iter: int = 100):
     """
     Calculate the implied volatility using the bisection method.
     Parameters:
         price_mkt (float): Market price of the option
         S0 (float): Current stock price
         K (float): Strike price
-        T (float): Time to expiration (in years)
+        tau (float): Time to expiration (in years)
         r (float): Risk-free interest rate (annualized)
         vol_low (float): Lower bound for volatility
         vol_high (float): Upper bound for volatility
@@ -174,24 +173,29 @@ def implied_vol(price_mkt: float, S0: float, K: float, T: float, r: float = 0.1,
         float: The implied volatility
     """
     try:
-        return implied_vol_newton_raphson(price_mkt, S0, K, T, r, sigma_0=0.2, option_type=option_type, tol=tol, max_iter=max_iter)
+        return implied_vol_newton_raphson(price_mkt, S0, K, tau, r, sigma_0=0.2, option_type=option_type, tol=tol, max_iter=max_iter)
     except RuntimeError:
-        return implied_vol_bissection(price_mkt, S0, K, T, r, vol_low, vol_high, option_type, tol, max_iter)
-    
+        return implied_vol_bissection(price_mkt, S0, K, tau, r, vol_low, vol_high, option_type, tol, max_iter)
+
+def black_vol_surface(ticker: str, database: str, r: float = 0.1):
+    options_data = get_option_data(ticker, database, database)
+    options_data = options_data[options_data['Asset Ticker'] == ticker]
+    imp_vols = []
+    for (index, row) in options_data.iterrows():
+        imp_vol = implied_vol(row['LastPrice'], row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
+        imp_vols.append(imp_vol)
+    vol_surface = pd.DataFrame()
+    vol_surface['Strike'] = options_data['Strike']
+    vol_surface['Maturity'] = options_data['Maturity']    
+    vol_surface['Implied Volatility'] = imp_vols
+    return vol_surface
+
 def test_smile():
     database = "2025-05-02"
     maturity = "2025-06-20"
     ticker = "PETR4"
-    df = get_option_data(ticker, database, database)
+    df = black_vol_surface(ticker, database, r=0.1)
     df = df[df['Maturity'] == maturity]
-    df = df[df['Asset Ticker'] == ticker]
-    imp_vols = []
-    for (index, row) in df.iterrows():
-        print(row)
-        imp_vol = implied_vol(row['LastPrice'], row['Asset Price'], row['Strike'], row['Days to Maturity'], r=0.1, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
-        imp_vols.append(imp_vol)
-
-    df['Implied Volatility'] = imp_vols
     plt.figure(figsize=(10, 6))
     plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
     plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
@@ -202,21 +206,21 @@ def test_smile():
     plt.show()
 
 if __name__ == "__main__":
-    # S0 = 100
-    # sigma = 0.16
-    # r = 0.05
-    # T = 0.5
-    # K = 98
+    S0 = 100
+    sigma = 0.16
+    r = 0.1
+    tau = 1.0
+    K = 100
 
-    # BSM_call = black_scholes(S0, K, T, r, sigma, OptionType.CALL)
-    # BSM_put = black_scholes(S0, K, T, r, sigma, OptionType.PUT)
+    BSM_call = black_scholes(S0, K, tau, r, sigma, OptionType.CALL)
+    BSM_put = black_scholes(S0, K, tau, r, sigma, OptionType.PUT)
 
-    # print(f'BSM Call Option Price: {BSM_call:.2f}')
-    # print(f'BSM Put Option Price: {BSM_put:.2f}')
+    print(f'BSM Call Option Price: {BSM_call:.2f}')
+    print(f'BSM Put Option Price: {BSM_put:.2f}')
     
     # # Monte Carlo pricing
-    # MC_call = black_scholes_monte_carlo(S0, K, T, r, sigma, OptionType.CALL, num_simulations=30_000, seed=42)
-    # MC_put = black_scholes_monte_carlo(S0, K, T, r, sigma, OptionType.PUT, num_simulations=30_000, seed=42)
+    # MC_call = black_scholes_monte_carlo(S0, K, tau, r, sigma, OptionType.CALL, num_simulations=30_000, seed=42)
+    # MC_put = black_scholes_monte_carlo(S0, K, tau, r, sigma, OptionType.PUT, num_simulations=30_000, seed=42)
     
     # print(f'\nMonte Carlo Call Option Price: {MC_call:.2f}')
     # print(f'Monte Carlo Put Option Price: {MC_put:.2f}')

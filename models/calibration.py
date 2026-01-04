@@ -13,8 +13,8 @@ def squared_error(model, prices: List[float], params):
     
     Parameters:
     model (function): the model function to generate predictions, receive params as input
-        black-scholes: [S, K, T, r, sigma, option_type]
-        kou: [S0, K, r, sigma, T, eta1, eta2, p, lambd, option_type]
+        black-scholes: [S, K, tau, r, sigma, option_type]
+        kou: [S0, K, r, sigma, tau, eta1, eta2, p, lambd, option_type]
         heston: [S0, K, v0, kappa, theta, sigma, rho, tau, r]
     prices (np.ndarray): observed data points
     params (np.ndarray): parameters for the model function
@@ -83,7 +83,7 @@ def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
     data_end = ndays(database, _ndays)
     options_full_data = get_option_data(asset_ticker, database, data_end)
 
-    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'T': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     listified_model = listify_model(kou_option_price, market_params, list(params.keys()))
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
     print(f'Squared error for Kou model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
@@ -111,7 +111,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
 
     prices = options_full_data['LastPrice'].values
 
-    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'T': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print(market_params[:5])
 
     kou_model_listified = listify_model(kou_option_price, market_params, list(params.keys()))
