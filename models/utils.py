@@ -4,7 +4,7 @@ from enum import Enum
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Callable
+from typing import List, Dict
 import json
 
 class OptionType(Enum):

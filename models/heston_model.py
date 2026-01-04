@@ -6,6 +6,7 @@ from black_scholes import implied_vol
 from utils import OptionType, measure, get_option_data, load_params
 from scipy.integrate import quad
 import QuantLib as ql
+import pandas as pd
 
 def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float, 
                  sigma: float, r: float, T: float, dt: float, M: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -250,6 +251,22 @@ def heston_price_ql(S0: float, K: float, v0: float, kappa: float, theta: float,
 
     return option_price
 
+def heston_vol_surface(ticker: str, database: str, r: float = 0.1):
+    options_data = get_option_data(ticker, database, database)
+    options_data = options_data[options_data['Asset Ticker'] == ticker]
+    imp_vols = []
+    for (index, row) in options_data.iterrows():
+        params = load_params("heston", database)
+        price_heston = heston_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
+        print(f"Heston price: {price_heston:.2f}, Market price: {row['LastPrice']}")
+        imp_vol = implied_vol(price_heston, row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
+        imp_vols.append(imp_vol)
+    vol_surface = pd.DataFrame()
+    vol_surface['Strike'] = options_data['Strike']
+    vol_surface['Maturity'] = options_data['Maturity']    
+    vol_surface['Implied Volatility'] = imp_vols
+    return vol_surface
+
 def test_heston_model() -> None:
     """Test Heston model visualization."""
     S0 = 100
@@ -339,18 +356,9 @@ def test_smile():
     database = "2025-05-02"
     maturity = "2025-06-20"
     ticker = "PETR4"
-    df = get_option_data(ticker, database, database)
+    df = heston_vol_surface(ticker, database)
     df = df[df['Maturity'] == maturity]
-    df = df[df['Asset Ticker'] == ticker]
-    imp_vols = []
-    for row in df.itertuples():
-        params = load_params("heston", database)
-        price_heston = heston_price(**{ 'S0': row._16, 'K': row.Strike, 'r': 0.10, 'tau': row._17 }, **params)
-        print(f"Heston price: {price_heston:.2f}, Market price: {row.LastPrice}")
-        imp_vol = implied_vol(price_heston, row._16, row.Strike, row._17, r=0.1, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
-        imp_vols.append(imp_vol)
 
-    df['Implied Volatility'] = imp_vols
     plt.figure(figsize=(10, 6))
     plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
     plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')

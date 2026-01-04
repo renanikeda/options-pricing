@@ -111,7 +111,7 @@ def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, T: float,
             return sigma
         vega = black_scholes_vega(S0, K, r, sigma, T)
         
-        if vega < 1e-6:
+        if vega < 1e-8:
             raise RuntimeError(f"Vega too small ({vega:.2e}) at iteration {iteration}")
         
         sigma_new = sigma - diff / vega
@@ -186,8 +186,9 @@ def test_smile():
     df = df[df['Maturity'] == maturity]
     df = df[df['Asset Ticker'] == ticker]
     imp_vols = []
-    for row in df.itertuples():
-        imp_vol = implied_vol(row.LastPrice, row._16, row.Strike, row._17, r=0.1, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
+    for (index, row) in df.iterrows():
+        print(row)
+        imp_vol = implied_vol(row['LastPrice'], row['Asset Price'], row['Strike'], row['Days to Maturity'], r=0.1, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
         imp_vols.append(imp_vol)
 
     df['Implied Volatility'] = imp_vols
