@@ -35,7 +35,7 @@ def listify_model(model: Callable, market_params: List[Dict], optmizing_params_k
     return func
 
 def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
-    params = load_params("heston", database)
+    params = load_params("heston", database, asset_ticker)
     data_end = ndays(database, _ndays)
     options_full_data = get_option_data(asset_ticker, database, data_end)
     
@@ -75,11 +75,11 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     print("params: ", {**result_params})
-    save_params("heston", database, result_params)
+    save_params("heston", database, ticker, result_params)
 
 
 def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
-    params = load_params("kou", database)
+    params = load_params("kou", database, asset_ticker)
     data_end = ndays(database, _ndays)
     options_full_data = get_option_data(asset_ticker, database, data_end)
 
@@ -119,14 +119,14 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     print("params: ", {**result_params})
-    save_params("kou", database, result_params)
+    save_params("kou", database, asset_ticker, result_params)
 
 if __name__ == "__main__":
     database = '2025-05-02'
-    ticker = "VALE3"
+    ticker = "PETR4"
     # print(get_option_data(ticker, database, ndays(database, 7)))
     # measure(lambda: calibrate_heston_model(ticker, database, _ndays=7))
-    validate_heston_model(ticker, database, _ndays=1)
+    # validate_heston_model(ticker, database, _ndays=1)
     # measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
     validate_kou_model(ticker, database, _ndays=7)
 

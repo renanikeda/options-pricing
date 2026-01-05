@@ -137,21 +137,25 @@ def days_to_maturity(trade_date: List[str], maturity_date: List[str]):
     maturity_dates = [datetime.strptime(date, date_format) for date in maturity_date]
     return np.array([(maturity - trade).days / 365 for trade, maturity in zip(trade_dates, maturity_dates)])
 
-def load_params(model: str, database: str) -> Dict:
+def load_params(model: str, database: str, ticker) -> Dict:
     if not os.path.exists("calibrated_params.json"):
         return {}
     with open("calibrated_params.json", "r") as f:
         all_params = json.load(f)
-        return all_params.get(model, {}).get(database, {})
+        return all_params.get(model, {}).get(database, {}).get(ticker, {})
     
-def save_params(model: str, database: str, params: Dict):
+def save_params(model: str, database: str, ticker: str, params: Dict):
     existed_params = {}
     if os.path.exists("calibrated_params.json"):
         with open("calibrated_params.json", "r") as f:
             existed_params = json.load(f)
     if model not in existed_params:
         existed_params[model] = {}
-    existed_params[model][database] = params
+
+    if database not in existed_params[model]:
+        existed_params[model][database] = {}
+
+    existed_params[model][database][ticker] = params
 
     with open("calibrated_params.json", "w") as f:
         json.dump(existed_params, f, indent=2)    
