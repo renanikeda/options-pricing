@@ -117,14 +117,14 @@ def jumps_pdf(tau: float, dt: float, p: float, eta1: float, eta2: float) -> Tupl
     
     return y, fdp
 
-def kou_process(S0: float, mu: float, sigma: float, tau: float, dt: float, 
+def kou_process(S0: float, r: float, sigma: float, tau: float, dt: float, 
                 eta1: float, eta2: float, p: float, lambd: float, M: int = 5) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate a single path of the Kou jump diffusion process.
     
     Parameters:
     S0 (float): initial stock price
-    mu (float): stock drift
+    r (float): stock drift
     sigma (float): volatility
     tau (float): time to maturity
     dt (float): time step
@@ -149,18 +149,18 @@ def kou_process(S0: float, mu: float, sigma: float, tau: float, dt: float,
 
     log_S = np.zeros((N+1, M))
     t, W = brownian_motion(tau, dt, M)
-    log_S = np.log(S0) + (mu - 0.5*sigma**2)*time_matrix + sigma*W + np.cumsum(generated_jumps_matrix, axis=0)
+    log_S = np.log(S0) + (r - 0.5*sigma**2)*time_matrix + sigma*W + np.cumsum(generated_jumps_matrix, axis=0)
 
     return t, np.exp(log_S)
 
-def kou_process_steps(S0: float, mu: float, sigma: float, tau: float, dt: float,
+def kou_process_steps(S0: float, r: float, sigma: float, tau: float, dt: float,
                       eta1: float, eta2: float, p: float, lambd: float, M: int = 5) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate a single path of the Kou jump diffusion process.
     
     Parameters:
     S0 (float): initial stock price
-    mu (float): stock drift
+    r (float): stock drift
     sigma (float): volatility
     tau (float): time to maturity
     dt (float): time step
@@ -184,7 +184,7 @@ def kou_process_steps(S0: float, mu: float, sigma: float, tau: float, dt: float,
     for step in range(1, N + 1):
         Z = np.random.randn(M)
         dW = Z * np.sqrt(dt)
-        log_S[step, :] = log_S[step-1, :] + (mu * dt) + (sigma * dW)
+        log_S[step, :] = log_S[step-1, :] + (r * dt) + (sigma * dW)
         Nj = jumps[step, :]
         idxs_with_jumps = np.nonzero(Nj)[0]
         if idxs_with_jumps.size > 0:
@@ -409,7 +409,7 @@ def test_kou_process() -> None:
     """Test the Kou process visualization."""
     S0 = 100
     r = 0.1
-    t, S = kou_process(S0=S0, mu=r, sigma=0.16, tau=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=5)
+    t, S = kou_process(S0=S0, r=r, sigma=0.16, tau=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=5)
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))

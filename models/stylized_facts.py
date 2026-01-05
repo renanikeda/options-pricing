@@ -9,6 +9,7 @@ import seaborn as sns
 
 from black_scholes import implied_vol
 from heston_model import heston_model
+from kou_jump_diffusion import kou_process
 from utils import OptionType, get_option_data, load_params
 
 def vol_surface(ticker: str, database: str, r: float = 0.1):
@@ -50,7 +51,7 @@ def plot_returns(W: np.array) -> None:
     qqplot(flat_returns, line='s', ax=ax, markerfacecolor='darkolivegreen', fit=True)
     plt.xlabel('Quantil Teórico')
     plt.ylabel('Quantil Amostral')
-    plt.xlim([-4,4])
+    plt.xlim([-4.5,4.5])
 
     plt.tight_layout()
     plt.show()
@@ -67,3 +68,10 @@ if __name__ == "__main__":
     print(heston_params)
     _, W_h, _ = heston_model(S0=S0, tau=tau, dt=0.001, r=r, M=100, **heston_params)
     plot_returns(W_h)
+    kou_params = load_params('kou', database)
+    print(kou_params)
+    t, W_k = kou_process(S0=S0, tau=tau, dt=0.001, r=r, M=100, **kou_params)
+    plot_returns(W_k)
+    # plt.plot(t, W_k[:, :5], '.', color='darkolivegreen', markersize=2)
+    # plt.grid()
+    # plt.show()
