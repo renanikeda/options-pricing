@@ -345,37 +345,6 @@ def kou_option_price(S0: float, K: float, r: float, sigma: float, tau: float,
 
     return S0 * Upsilon(mu=r + 0.5 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd2, p=p2, eta1=eta12, eta2=eta22, x=math.log(K/S0), tau=tau) - K * np.exp(-r*tau) * Upsilon(mu=r - 0.5 * sigma**2 - lambd * csi, sigma=sigma, lambd=lambd, p=p, eta1=eta1, eta2=eta2, x=math.log(K/S0), tau=tau)
 
-def kou_vol_surface(ticker: str, database: str, r: float = 0.1):
-    options_data = get_option_data(ticker, database, database)
-    options_data = options_data[options_data['Asset Ticker'] == ticker]
-    imp_vols = []
-    for (index, row) in options_data.iterrows():
-        params = load_params("kou", database)
-        price_heston = kou_option_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
-        print(f"Kou price: {price_heston:.2f}, Market price: {row['LastPrice']}")
-        imp_vol = implied_vol(price_heston, row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
-        imp_vols.append(imp_vol)
-    vol_surface = pd.DataFrame()
-    vol_surface['Strike'] = options_data['Strike']
-    vol_surface['Maturity'] = options_data['Maturity']    
-    vol_surface['Implied Volatility'] = imp_vols
-    return vol_surface
-
-def test_smile():
-    database = "2025-05-02"
-    maturity = "2025-06-20"
-    ticker = "PETR4"
-    df = kou_vol_surface(ticker, database, r=0.1)
-    df = df[df['Maturity'] == maturity]
-    plt.figure(figsize=(10, 6))
-    plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
-    plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
-    plt.xlabel('Strike Price')
-    plt.ylabel('Implied Volatility')
-    plt.legend()
-    plt.grid()
-    plt.show()
-
 def test_poisson_process() -> None:
     """Test the Poisson process visualization."""
     lambd = 1
@@ -504,4 +473,4 @@ if __name__ == "__main__":
     # measure(test_kou_pricing_mc)
     test_kou_process()
     measure(test_kou_pricing)
-    test_smile()    
+ 

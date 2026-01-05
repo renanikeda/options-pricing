@@ -177,34 +177,6 @@ def implied_vol(price_mkt: float, S0: float, K: float, tau: float, r: float = 0.
     except RuntimeError:
         return implied_vol_bissection(price_mkt, S0, K, tau, r, vol_low, vol_high, option_type, tol, max_iter)
 
-def black_vol_surface(ticker: str, database: str, r: float = 0.1):
-    options_data = get_option_data(ticker, database, database)
-    options_data = options_data[options_data['Asset Ticker'] == ticker]
-    imp_vols = []
-    for (index, row) in options_data.iterrows():
-        imp_vol = implied_vol(row['LastPrice'], row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
-        imp_vols.append(imp_vol)
-    vol_surface = pd.DataFrame()
-    vol_surface['Strike'] = options_data['Strike']
-    vol_surface['Maturity'] = options_data['Maturity']    
-    vol_surface['Implied Volatility'] = imp_vols
-    return vol_surface
-
-def test_smile():
-    database = "2025-05-02"
-    maturity = "2025-06-20"
-    ticker = "PETR4"
-    df = black_vol_surface(ticker, database, r=0.1)
-    df = df[df['Maturity'] == maturity]
-    plt.figure(figsize=(10, 6))
-    plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
-    plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
-    plt.xlabel('Strike Price')
-    plt.ylabel('Implied Volatility')
-    plt.legend()
-    plt.grid()
-    plt.show()
-
 if __name__ == "__main__":
     S0 = 100
     sigma = 0.16
@@ -229,4 +201,3 @@ if __name__ == "__main__":
     # print(implied_vol(4.96, 30.66, 25.97, 16/252, 0.1))
     
     # print(implied_vol(5.2, 30.47, 26.72, 96/252, 0.1))
-    test_smile()

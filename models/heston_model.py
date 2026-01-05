@@ -251,22 +251,6 @@ def heston_price_ql(S0: float, K: float, v0: float, kappa: float, theta: float,
 
     return option_price
 
-def heston_vol_surface(ticker: str, database: str, r: float = 0.1):
-    options_data = get_option_data(ticker, database, database)
-    options_data = options_data[options_data['Asset Ticker'] == ticker]
-    imp_vols = []
-    for (index, row) in options_data.iterrows():
-        params = load_params("heston", database)
-        price_heston = heston_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
-        print(f"Heston price: {price_heston:.2f}, Market price: {row['LastPrice']}")
-        imp_vol = implied_vol(price_heston, row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
-        imp_vols.append(imp_vol)
-    vol_surface = pd.DataFrame()
-    vol_surface['Strike'] = options_data['Strike']
-    vol_surface['Maturity'] = options_data['Maturity']    
-    vol_surface['Implied Volatility'] = imp_vols
-    return vol_surface
-
 def test_heston_model() -> None:
     """Test Heston model visualization."""
     S0 = 100
@@ -352,26 +336,8 @@ def test_heston_option_pricing() -> None:
     call_price_ql = heston_price_ql( S0, K, v0, kappa, theta, sigma, rho, tau, r )
     print(f"Call option price ql: {call_price_ql:.4f}")
 
-def test_smile():
-    database = "2025-05-02"
-    maturity = "2025-06-20"
-    ticker = "PETR4"
-    df = heston_vol_surface(ticker, database)
-    df = df[df['Maturity'] == maturity]
-
-    plt.figure(figsize=(10, 6))
-    plt.scatter(df['Strike'], df['Implied Volatility'], color='blue', label='Implied Volatility')
-    plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
-    plt.xlabel('Strike Price')
-    plt.ylabel('Implied Volatility')
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-
 if __name__ == "__main__":
     test_heston_model()
     # measure(test_heston_option_pricing_mc)
     measure(test_heston_option_pricing)
-    test_smile()
     
