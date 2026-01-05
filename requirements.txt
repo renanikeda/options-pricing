@@ -8,3 +8,4 @@ scipy>=1.10.0
 python-bcb="*"
 QuantLib>=1.40
 seaborn>=0.13.2
+statsmodels>=0.14.0
