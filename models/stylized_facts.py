@@ -37,7 +37,7 @@ def vol_surface(ticker: str, database: str, r: float = 0.1, type: Literal['hesto
     vol_surface['Implied Volatility'] = imp_vols
     return vol_surface
 
-def plot_returns(W: np.array) -> None:
+def plot_returns(W: np.array, bins: int = 100) -> None:
     """
     Plot the returns distribution and QQ plot.
     Args:
@@ -50,14 +50,16 @@ def plot_returns(W: np.array) -> None:
     print('ploting returns shape:', flat_returns.shape)
     fig = plt.figure(figsize=(10, 7))
     ax = fig.add_subplot(211)
-    # ax.set_xlim([-0.1, 0.1])
-    sns.histplot(flat_returns, bins=100, color='darkolivegreen', stat='density', ax=ax)
+    xlim = np.std(flat_returns) * 4
+    ax.set_xlim([-xlim, xlim])
+    sns.histplot(flat_returns, bins=bins, color='darkolivegreen', stat='density', ax=ax)
     xmin, xmax = plt.xlim()
-    x = np.linspace(xmin, xmax, 100)
+    x = np.linspace(xmin, xmax, bins*2)
     p = norm.pdf(x, np.mean(flat_returns), np.std(flat_returns))
     plt.plot(x, p, color='r', linestyle='dashed', linewidth=3, label='Gaussian')
     plt.xlabel(f'GBM retorno diário')
     plt.ylabel('Frequência')
+    plt.grid(linewidth=0.3)
     plt.legend()
 
     ax = fig.add_subplot(212)
@@ -65,7 +67,7 @@ def plot_returns(W: np.array) -> None:
     plt.xlabel('Quantil Teórico')
     plt.ylabel('Quantil Amostral')
     plt.xlim([-4.5,4.5])
-
+    plt.grid(linewidth=0.3)
     plt.tight_layout()
     plt.show()
 
@@ -74,26 +76,29 @@ def test_returns():
     tau=1
     r=0.1
     sigma=0.5
+    M=100
+    dt=0.001
     database = '2025-05-02'
-    _, W = geometric_brownian_motion(S0=S0, tau=tau, dt=0.001, r=r, sigma=sigma, M=100)
+
+    _, W = geometric_brownian_motion(S0=S0, tau=tau, dt=dt, r=r, sigma=sigma, M=M)
     plot_returns(W)
+
     heston_params = load_params('heston', database)
     print(heston_params)
-    _, W_h, _ = heston_model(S0=S0, tau=tau, dt=0.001, r=r, M=100, **heston_params)
+    _, W_h, _ = heston_model(S0=S0, tau=tau, dt=dt, r=r, M=M, **heston_params)
     plot_returns(W_h)
+
     kou_params = load_params('kou', database)
     print(kou_params)
-    t, W_k = kou_process(S0=S0, tau=tau, dt=0.001, r=r, M=100, **kou_params)
-    plot_returns(W_k)
-    plt.plot(t, W_k[:, :5], '.', color='darkolivegreen', markersize=2)
-    plt.grid()
-    plt.show()
+    t, W_k = kou_process(S0=S0, tau=tau, dt=dt, r=r, M=M, **kou_params)
+    plot_returns(W_k, bins = 800)
+
 
 def test_smile():
     database = "2025-05-02"
     maturity = "2025-06-20"
     ticker = "PETR4"
-    model = 'kou'  # 'heston', 'kou', 'black'
+    # model = 'kou'  # 'heston', 'kou', 'black'
     # df = vol_surface(ticker, database, 0.1, model)
     # df = df[df['Maturity'] == maturity]
     surface_black = vol_surface(ticker, database, 0.1, 'black')
@@ -114,5 +119,5 @@ def test_smile():
     plt.show()
 
 if __name__ == "__main__":
-    # test_returns()
-    test_smile()
+    test_returns()
+    # test_smile()
