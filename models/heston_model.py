@@ -2,8 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from typing import Tuple
 from brownian_motion import cov_brownian_motion_diff
-from black_scholes import implied_vol
-from utils import OptionType, measure, get_option_data, load_params
+from utils import OptionType, measure, load_params
 from scipy.integrate import quad
 import QuantLib as ql
 import pandas as pd
@@ -42,7 +41,8 @@ def heston_model(S0: float, v0: float, rho: float, kappa: float, theta: float,
 
         S[i] = S[i-1] * np.exp((r - 0.5*v_pos)*dt + np.sqrt(v_pos) * dW[i-1, :, 0])
         v[i] = np.maximum(v[i-1] + kappa*(theta - v_pos)*dt + sigma*np.sqrt(v_pos)*dW[i-1, :, 1], 0)
-    
+    print(np.mean(S[-1]) / S0)
+    print(np.exp(r * tau))
     return t, S, v
 
 def heston_option_price_mc(S0: float, K: float, v0: float, rho: float, kappa: float, 
@@ -294,18 +294,23 @@ def test_heston_model() -> None:
 
 def test_heston_option_pricing_mc() -> None:
     """Test Heston option pricing."""
-    S0 = 100
-    K = 100
-    v0 = 0.1
-    rho = -0.5711
-    kappa = 1.5768
-    theta = 0.0398
-    sigma = 0.3
+    S0 = 35
+    K = 25
+    # v0 = 0.1
+    # rho = -0.5711
+    # kappa = 1.5768
+    # theta = 0.0398
+    # sigma = 0.3
     r = 0.03
     tau = 1.0
     dt = 0.001
     M = 100_000
-    
+    v0 = 0.0522284576620002
+    kappa=0.4054180835596147
+    theta=0.22112599883353512
+    sigma=0.4999999999999986
+    rho=-0.42944183484265186
+
     call_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, tau, dt, M, OptionType.CALL)
     # put_price = heston_option_price_mc(S0, K, v0, rho, kappa, theta, sigma, r, tau, dt, M, OptionType.CALL)
     
@@ -319,15 +324,21 @@ def test_heston_option_pricing_mc() -> None:
 
 def test_heston_option_pricing() -> None:
     """Test Heston option pricing."""
-    S0 = 100
-    K = 100
-    v0 = 0.1
-    rho = -0.2
-    kappa = 0.5
-    theta = 0.01
-    sigma = 0.13
+    S0 = 35
+    K = 25
+    # v0 = 0.1
+    # rho = -0.2
+    # kappa = 0.5
+    # theta = 0.01
+    # sigma = 0.13
     r = 0.1
     tau = 1.0
+    v0 = 0.0522284576620002
+    kappa=0.4054180835596147
+    theta=0.22112599883353512
+    sigma=0.4999999999999986
+    rho=-0.42944183484265186
+
     
     call_price = heston_price( S0, K, v0, kappa, theta, sigma, rho, tau, r )
     
@@ -337,7 +348,7 @@ def test_heston_option_pricing() -> None:
     print(f"Call option price ql: {call_price_ql:.4f}")
 
 if __name__ == "__main__":
-    test_heston_model()
-    # measure(test_heston_option_pricing_mc)
+    # test_heston_model()
     measure(test_heston_option_pricing)
+    measure(test_heston_option_pricing_mc)
     

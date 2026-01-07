@@ -121,5 +121,5 @@ def test_smile():
     plt.show()
 
 if __name__ == "__main__":
-    # test_returns()
+    test_returns()
     test_smile()
