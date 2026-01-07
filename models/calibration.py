@@ -53,9 +53,9 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     params = {
         "v0": {"x0": 0.1, "limits": [1e-3,0.5]},
         "kappa": {"x0": 0.5, "limits": [1e-3,3]},
-        "theta": {"x0": 0.05, "limits": [1e-3,0.5]},
+        "theta": {"x0": 0.1, "limits": [1e-3,0.5]},
         "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
-        "rho": {"x0": -0.8, "limits": [-1,1]},
+        "rho": {"x0": -0.5, "limits": [-1,1]},
     }
 
     data_ini = ndays(database, -1*_ndays)
@@ -122,11 +122,11 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     save_params("kou", database, asset_ticker, result_params)
 
 if __name__ == "__main__":
-    database = '2025-05-02'
+    database = '2025-01-30'
     ticker = "PETR4"
     # print(get_option_data(ticker, database, ndays(database, 7)))
     # measure(lambda: calibrate_heston_model(ticker, database, _ndays=7))
     # validate_heston_model(ticker, database, _ndays=1)
-    # measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
+    measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
     validate_kou_model(ticker, database, _ndays=7)
 

@@ -19,11 +19,11 @@ def vol_surface(ticker: str, database: str, r: float = 0.1, type: Literal['hesto
     imp_vols = []
     for (_, row) in options_data.iterrows():
         if type == 'heston':
-            params = load_params("heston", database)
+            params = load_params("heston", database, ticker)
             price = heston_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
             print(f"Heston price: {price:.2f}, Market price: {row['LastPrice']}")
         elif type == 'kou':
-            params = load_params("kou", database)
+            params = load_params("kou", database, ticker)
             price = kou_option_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
             print(f"Kou price: {price:.2f}, Market price: {row['LastPrice']}")
         elif type == 'black':
@@ -76,27 +76,29 @@ def test_returns():
     tau=1
     r=0.1
     sigma=0.5
-    M=100
+    M=25
     dt=0.001
-    database = '2025-05-02'
+    database = "2025-01-30"
+    ticker = 'PETR4'
 
     _, W = geometric_brownian_motion(S0=S0, tau=tau, dt=dt, r=r, sigma=sigma, M=M)
     plot_returns(W)
 
-    heston_params = load_params('heston', database)
+    heston_params = load_params('heston', database, ticker)
     print(heston_params)
     _, W_h, _ = heston_model(S0=S0, tau=tau, dt=dt, r=r, M=M, **heston_params)
     plot_returns(W_h)
 
-    kou_params = load_params('kou', database)
+    kou_params = load_params('kou', database, ticker)
     print(kou_params)
     t, W_k = kou_process(S0=S0, tau=tau, dt=dt, r=r, M=M, **kou_params)
-    plot_returns(W_k, bins = 800)
+    plot_returns(W_k, bins = 1000)
 
 
 def test_smile():
-    database = "2025-05-02"
-    maturity = "2025-06-20"
+    database = "2025-01-30"
+    # maturity = "2025-06-20"
+    maturity = "2025-03-21"
     ticker = "PETR4"
     # model = 'kou'  # 'heston', 'kou', 'black'
     # df = vol_surface(ticker, database, 0.1, model)
@@ -108,9 +110,9 @@ def test_smile():
     surface_kou = vol_surface(ticker, database, 0.1, 'kou')
     surface_kou = surface_kou[surface_kou['Maturity'] == maturity]
     plt.figure(figsize=(10, 6))
-    plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=8)
-    plt.scatter(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', label='Heston Implied Volatility', s=8)
-    plt.scatter(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', label='Kou Implied Volatility', s=8)
+    plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
+    plt.scatter(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', label='Heston Implied Volatility', s=10)
+    plt.scatter(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', label='Kou Implied Volatility', s=10)
     plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
     plt.xlabel('Strike Price')
     plt.ylabel('Implied Volatility')
@@ -119,5 +121,5 @@ def test_smile():
     plt.show()
 
 if __name__ == "__main__":
-    test_returns()
-    # test_smile()
+    # test_returns()
+    test_smile()

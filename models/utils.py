@@ -137,7 +137,7 @@ def days_to_maturity(trade_date: List[str], maturity_date: List[str]):
     maturity_dates = [datetime.strptime(date, date_format) for date in maturity_date]
     return np.array([(maturity - trade).days / 365 for trade, maturity in zip(trade_dates, maturity_dates)])
 
-def load_params(model: str, database: str, ticker) -> Dict:
+def load_params(model: str, database: str, ticker: str) -> Dict:
     if not os.path.exists("calibrated_params.json"):
         return {}
     with open("calibrated_params.json", "r") as f:
