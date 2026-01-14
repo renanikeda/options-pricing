@@ -11,9 +11,9 @@ from typing import Literal
 from black_scholes import implied_vol
 from heston_model import heston_model, heston_price
 from kou_jump_diffusion import kou_option_price, kou_process
-from utils import OptionType, get_option_data, load_params
+from utils import OptionType, ewma_volatility, get_option_data, get_asset_prices, load_params, nworkdays, OptionStyle
 
-def vol_surface(ticker: str, database: str, r: float = 0.1, type: Literal['heston', 'kou', 'black'] = 'black' ):
+def vol_surface(ticker: str, database: str, r: float = 0.1, type: Literal['heston', 'kou', 'black'] = 'black', verbose=False):
     options_data = get_option_data(ticker, database, database)
     options_data = options_data[options_data['Asset Ticker'] == ticker]
     imp_vols = []
@@ -21,19 +21,20 @@ def vol_surface(ticker: str, database: str, r: float = 0.1, type: Literal['hesto
         if type == 'heston':
             params = load_params("heston", database, ticker)
             price = heston_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
-            print(f"Heston price: {price:.2f}, Market price: {row['LastPrice']}")
+            if verbose: print(f"Heston price: {price:.2f}, Market price: {row['LastPrice']}")
         elif type == 'kou':
             params = load_params("kou", database, ticker)
             price = kou_option_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
-            print(f"Kou price: {price:.2f}, Market price: {row['LastPrice']}")
+            if verbose: print(f"Kou price: {price:.2f}, Market price: {row['LastPrice']}")
         elif type == 'black':
             price = row['LastPrice']
-            print(f"Black-Scholes, Market price: {row['LastPrice']}")
+            if verbose: print(f"Black-Scholes, Market price: {row['LastPrice']}")
         imp_vol = implied_vol(price, row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
         imp_vols.append(imp_vol)
     vol_surface = pd.DataFrame()
     vol_surface['Strike'] = options_data['Strike']
     vol_surface['Maturity'] = options_data['Maturity']    
+    vol_surface['Days to Maturity'] = options_data['Days to Maturity']    
     vol_surface['Implied Volatility'] = imp_vols
     return vol_surface
 
@@ -71,15 +72,92 @@ def plot_returns(W: np.array, bins: int = 100) -> None:
     plt.tight_layout()
     plt.show()
 
+def filter_recent_maturity(options_df: pd.DataFrame, min_trade_qty=5, spread_price=0.75) -> pd.Timestamp:
+    """
+    Filter and retrieve the most recent maturity date from the options DataFrame.
+    
+    Parameters:
+    options_df (pd.DataFrame): DataFrame containing option data with 'Maturity' column.
+    min_trade_qty (int): Minimum trade quantity to filter options.
+    spread_price (float): Maximum allowed spread price percentage (decimal format).
+    
+    Returns:
+    pd.Timestamp: The most recent maturity date.
+    """
+    resultado = options_df[options_df["TradeQty"] >= min_trade_qty]
+    resultado = resultado[resultado["OscnPctg"].abs() <= abs(spread_price * 100)]
+
+    resultado = (
+        resultado
+        .loc[lambda x: x.groupby("TradeDate")["Days to Maturity"].idxmin()]
+        .sort_values("TradeDate")
+    )
+    return resultado
+
+def get_option_implied_vs_realized_vol(asset_ticker: str, start_date: str, 
+                                      end_date: str, window: int = 30,
+                                      style: OptionStyle = OptionStyle.EURO,
+                                      type: OptionType = OptionType.CALL) -> pd.DataFrame:
+    """
+    Compare implied volatility from options with realized volatility.
+    
+    Parameters:
+    asset_ticker (str): ticker name
+    start_date (str): start date %Y-%m-%d
+    end_date (str): end date %Y-%m-%d
+    window (int): window for realized volatility calculation
+    style (OptionStyle): option style
+    type (OptionType): option type
+    
+    Returns:
+    pd.DataFrame: DataFrame with implied and realized volatilities
+    """
+    # Get option data
+    options_df = get_option_data(asset_ticker, start_date, end_date, style, type)
+    
+    if options_df.empty:
+        return pd.DataFrame()
+    
+    # Get asset prices
+    prices_df = get_asset_prices(asset_ticker, start_date, end_date)
+    prices_df['TradeDate'] = pd.to_datetime(prices_df['TradeDate'])
+    prices_df.set_index('TradeDate', inplace=True)
+    
+    # Calculate realized volatility (EWMA)
+    realized_vol = ewma_volatility(prices_df['Asset Price'], span=window).copy()
+    # Prepare comparison DataFrame
+    resultado = filter_recent_maturity(options_df, min_trade_qty=5)
+    print(resultado)
+    for _, row in resultado.iterrows():
+        trade_date = row['TradeDate']
+        asset_price = row['Asset Price']
+        if trade_date not in realized_vol.index: continue
+        print(trade_date)
+        recent_maturity = row['Maturity']
+        vol_surf = vol_surface(asset_ticker, trade_date, type='black')
+        vol_surf = vol_surf.loc[vol_surf['Maturity'] == recent_maturity]
+        vol_surf['Price Difference'] = abs(vol_surf['Strike'] - asset_price)
+        vol_surf = vol_surf.loc[vol_surf['Price Difference'].idxmin()]
+        iv_latest = vol_surf['Implied Volatility']
+        realized_vol.loc[trade_date, 'Implied Volatility'] = iv_latest
+
+    return realized_vol
+
 def test_returns():
     S0=100
-    tau=1
+    tau=0.5
     r=0.1
     sigma=0.5
     M=25
     dt=0.001
     database = "2025-01-30"
     ticker = 'PETR4'
+
+    dataend = nworkdays(database, int(252/2))
+    print(database, dataend)
+    S = get_asset_prices(ticker, database, dataend)
+    S = S['Asset Price'].values
+    plot_returns(S)
 
     _, W = geometric_brownian_motion(S0=S0, tau=tau, dt=dt, r=r, sigma=sigma, M=M)
     plot_returns(W)
@@ -92,7 +170,7 @@ def test_returns():
     kou_params = load_params('kou', database, ticker)
     print(kou_params)
     t, W_k = kou_process(S0=S0, tau=tau, dt=dt, r=r, M=M, **kou_params)
-    plot_returns(W_k, bins = 1000)
+    plot_returns(W_k, bins = int(50 * tau * 20))
 
 
 def test_smile():
@@ -120,6 +198,15 @@ def test_smile():
     plt.grid()
     plt.show()
 
+def test_vol():
+    asset_ticker = 'PETR4'
+    start_date = '2025-01-01'
+    end_date = '2025-01-20'
+    
+    vol_comparison = get_option_implied_vs_realized_vol(asset_ticker, start_date, end_date, window=15)
+    print(vol_comparison)
+
 if __name__ == "__main__":
-    test_returns()
-    test_smile()
+    # test_returns()
+    # test_smile()
+    test_vol()
