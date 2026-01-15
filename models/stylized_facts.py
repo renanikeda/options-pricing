@@ -94,6 +94,35 @@ def filter_recent_maturity(options_df: pd.DataFrame, min_trade_qty=5, spread_pri
     )
     return resultado
 
+def estimate_vol(asset_ticker: str, trade_date: str, r = 0.1, option_type: OptionType = OptionType.CALL):
+    """
+    Get the implied volatility for the most recent maturity option on a given trade date.
+    
+    Parameters:
+    asset_ticker (str): ticker name
+    trade_date (str): trade date %Y-%m-%d
+    r (float): risk-free interest rate
+    option_type (OptionType): option type
+    
+    Returns:
+    float: implied volatility
+    """
+    options_df = get_option_data(asset_ticker, trade_date, trade_date, type=option_type)
+    if options_df.empty:
+        return None
+    
+    prices_df = get_asset_prices(asset_ticker, trade_date, trade_date)
+    asset_price = prices_df['Asset Price'].values[0]
+    
+    recent_maturity = filter_recent_maturity(options_df)
+    vol_surf = vol_surface(asset_ticker, trade_date, r=r, type='black')
+    vol_surf = vol_surf.loc[vol_surf['Maturity'] == recent_maturity.iloc[0]['Maturity']]
+    vol_surf['Price Difference'] = abs(vol_surf['Strike'] - asset_price)
+    vol_surf = vol_surf.loc[vol_surf['Price Difference'].idxmin()]
+    iv_latest = vol_surf['Implied Volatility']
+    
+    return iv_latest
+
 def get_option_implied_vs_realized_vol(asset_ticker: str, start_date: str, 
                                       end_date: str, window: int = 30,
                                       style: OptionStyle = OptionStyle.EURO,
@@ -133,13 +162,14 @@ def get_option_implied_vs_realized_vol(asset_ticker: str, start_date: str,
         asset_price = row['Asset Price']
         if trade_date not in realized_vol.index: continue
         print(trade_date)
-        recent_maturity = row['Maturity']
-        vol_surf = vol_surface(asset_ticker, trade_date, type='black')
-        vol_surf = vol_surf.loc[vol_surf['Maturity'] == recent_maturity]
-        vol_surf['Price Difference'] = abs(vol_surf['Strike'] - asset_price)
-        vol_surf = vol_surf.loc[vol_surf['Price Difference'].idxmin()]
-        iv_latest = vol_surf['Implied Volatility']
-        realized_vol.loc[trade_date, 'Implied Volatility'] = iv_latest
+        # # recent_maturity = row['Maturity']
+        # # vol_surf = vol_surface(asset_ticker, trade_date, type='black')
+        # # vol_surf = vol_surf.loc[vol_surf['Maturity'] == recent_maturity]
+        # # vol_surf['Price Difference'] = abs(vol_surf['Strike'] - asset_price)
+        # # vol_surf = vol_surf.loc[vol_surf['Price Difference'].idxmin()]
+        # # iv_latest = vol_surf['Implied Volatility']
+        # realized_vol.loc[trade_date, 'Implied Volatility'] = iv_latest
+        realized_vol.loc[trade_date, 'Implied Volatility'] = estimate_vol(asset_ticker, trade_date, option_type=type)
 
     return realized_vol
 

@@ -168,7 +168,7 @@ def save_params(model: str, database: str, ticker: str, params: Dict):
 
 def ewma_volatility(prices: pd.Series, window: int = None, span: int = None, 
                    halflife: int = None, alpha: float = None, 
-                   annualize: bool = True, trading_days: int = 252) -> pd.Series:
+                   annualize: bool = True, trading_days: int = 252) -> pd.DataFrame:
     """
     Calculate Exponentially Weighted Moving Average (EWMA) volatility.
     
@@ -188,7 +188,7 @@ def ewma_volatility(prices: pd.Series, window: int = None, span: int = None,
     trading_days (int): Number of trading days per year (default: 252)
     
     Returns:
-    pd.Series: EWMA volatility (standard deviation)
+    pd.DataFrame: EWMA volatility (standard deviation)
     
     Examples:
     >>> prices = get_asset_prices('PETR4', '2024-01-01', '2024-12-31')
