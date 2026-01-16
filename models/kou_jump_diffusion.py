@@ -67,9 +67,20 @@ def generate_matrix_jump_sizes(
     jumps: np.ndarray
 ) -> np.ndarray:
     """
-    Correct Kou jump aggregation.
-
-    jumps[t, i] = number of jumps at time t for path i
+    Sample n independent draws of Y ~ Kou double-exponential (log-jump).
+    Return array of length n.
+    Implementation:
+      - with probability p: Y = +Exp(scale=1/eta1) (positive)
+      - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
+    
+    Parameters:
+    p (float): probability of positive jump
+    eta1 (float): parameter for positive jumps
+    eta2 (float): parameter for negative jumps
+    jumps (np.ndarray): matrix of jump counts (N x M)
+    
+    Returns:
+    np.ndarray: matrix of jump sizes
     """
 
     N_time, M_paths = jumps.shape
