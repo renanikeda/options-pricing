@@ -28,8 +28,8 @@ def classify_option(ticker: str):
 def get_prefixo_ticker(ticker: str):
     return ticker[:4]
 
-colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
-
+# colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
+colors = ['darkred', 'darkgoldenrod', 'olive', 'darkcyan', 'indigo', 'darkmagenta', 'saddlebrown', 'teal', 'slategray', 'darkgreen']
 options_data = lambda database: f'../data/Histórico B3/Negociações {database}.csv'
 
 

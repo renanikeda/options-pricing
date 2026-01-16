@@ -25,96 +25,87 @@ def poisson_process(lambd: float, tau: float, dt: float, M: int = 1) -> np.ndarr
     jumps = np.random.poisson(lambd * dt, (N + 1, M))
     return jumps
 
-def generate_jump_sizes(p: float, eta1: float, eta2: float, num_jumps: int) -> np.ndarray:
-    """
-    Sample n independent draws of Y ~ Kou double-exponential (log-jump).
-    Return array of length n.
-    Implementation:
-      - with probability p: Y = +Exp(scale=1/eta1) (positive)
-      - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
+# def generate_matrix_jump_sizes(p: float, eta1: float, eta2: float, jumps: np.ndarray) -> np.ndarray:
+#     """
+#     Sample n independent draws of Y ~ Kou double-exponential (log-jump).
+#     Return array of length n.
+#     Implementation:
+#       - with probability p: Y = +Exp(scale=1/eta1) (positive)
+#       - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
     
-    Parameters:
-    p (float): probability of positive jump
-    eta1 (float): parameter for positive jumps
-    eta2 (float): parameter for negative jumps
-    num_jumps (int): number of jumps to generate
+#     Parameters:
+#     p (float): probability of positive jump
+#     eta1 (float): parameter for positive jumps
+#     eta2 (float): parameter for negative jumps
+#     jumps (np.ndarray): matrix of jump counts (N x M)
     
-    Returns:
-    np.ndarray: array of jump sizes
-    """
-    u = np.random.rand(num_jumps)
-    pos_mask = (u < p)
-    neg_mask = ~pos_mask
-    Y = np.empty(num_jumps, dtype=float)
-    # positive jumps
-    npos = pos_mask.sum()
-    if npos > 0:
-        Y[pos_mask] = np.random.exponential(scale=1.0/eta1, size=npos)
-    # negative jumps
-    nneg = neg_mask.sum()
-    if nneg > 0:
-        Y[neg_mask] = -np.random.exponential(scale=1.0/eta2, size=nneg)
-    return Y
+#     Returns:
+#     np.ndarray: matrix of jump sizes
+#     """
+#     Y = np.empty(jumps.shape, dtype=float)
+#     for n in range(jumps.shape[1]):
+#         u = np.random.rand(jumps.shape[0])
+#         # u = np.random.rand(np.sum(jumps[:, n]))
+#         pos_mask = (u < p)
+#         neg_mask = ~pos_mask
+#         # positive jumps
+#         npos = pos_mask.sum()
+#         if npos > 0:
+#             Y[pos_mask, n] = np.random.exponential(scale=1.0/eta1, size=npos)
+#         # negative jumps
+#         nneg = neg_mask.sum()
+#         if nneg > 0:
+#             Y[neg_mask, n] = -np.random.exponential(scale=1.0/eta2, size=nneg)
+        
+#         Y[:, n] *= jumps[:, n]
+#     return Y
 
-def generate_matrix_jump_sizes(p: float, eta1: float, eta2: float, jumps: np.ndarray) -> np.ndarray:
+def generate_matrix_jump_sizes(
+    p: float,
+    eta1: float,
+    eta2: float,
+    jumps: np.ndarray
+) -> np.ndarray:
     """
-    Sample n independent draws of Y ~ Kou double-exponential (log-jump).
-    Return array of length n.
-    Implementation:
-      - with probability p: Y = +Exp(scale=1/eta1) (positive)
-      - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
-    
-    Parameters:
-    p (float): probability of positive jump
-    eta1 (float): parameter for positive jumps
-    eta2 (float): parameter for negative jumps
-    jumps (np.ndarray): matrix of jump counts (N x M)
-    
-    Returns:
-    np.ndarray: matrix of jump sizes
-    """
-    Y = np.empty(jumps.shape, dtype=float)
-    for n in range(jumps.shape[1]):
-        u = np.random.rand(jumps.shape[0])
-        pos_mask = (u < p)
-        neg_mask = ~pos_mask
-        # positive jumps
-        npos = pos_mask.sum()
-        if npos > 0:
-            Y[pos_mask, n] = np.random.exponential(scale=1.0/eta1, size=npos)
-        # negative jumps
-        nneg = neg_mask.sum()
-        if nneg > 0:
-            Y[neg_mask, n] = -np.random.exponential(scale=1.0/eta2, size=nneg)
-        Y[:, n] *= jumps[:, n]
-    return Y
+    Correct Kou jump aggregation.
 
-def jumps_pdf(tau: float, dt: float, p: float, eta1: float, eta2: float) -> Tuple[np.ndarray, np.ndarray]:
+    jumps[t, i] = number of jumps at time t for path i
     """
-    Calculate the PDF of jump sizes for the double exponential distribution.
-    
-    Parameters:
-    tau (float): time horizon
-    dt (float): time step
-    p (float): probability of positive jump
-    eta1 (float): parameter for positive jumps
-    eta2 (float): parameter for negative jumps
-    
-    Returns:
-    Tuple[np.ndarray, np.ndarray]: (y values, PDF values)
-    """
-    y = np.linspace(-math.floor(tau/2), math.floor(tau/2), math.floor(1/dt))
-    fdp = np.zeros_like(y, dtype=float)
-    
-    # Positive part (y >= 0)
-    positive_mask = y >= 0
-    fdp[positive_mask] = p * eta1 * np.exp(-eta1 * y[positive_mask])
-    
-    # Negative part (y < 0)
-    negative_mask = y < 0
-    fdp[negative_mask] = (1-p) * eta2 * np.exp(eta2 * y[negative_mask])
-    
-    return y, fdp
+
+    N_time, M_paths = jumps.shape
+    jump_matrix = np.zeros((N_time, M_paths), dtype=float)
+
+    for t in range(N_time):
+        Nj_row = jumps[t, :]
+        idxs = np.nonzero(Nj_row)[0]  # paths with jumps at time t
+
+        for i in idxs:
+            nj = int(Nj_row[i])
+
+            # One Bernoulli per jump (correct Kou model)
+            u = np.random.rand(nj)
+            pos_mask = u < p
+            neg_mask = ~pos_mask
+
+            Y = np.empty(nj, dtype=float)
+
+            npos = pos_mask.sum()
+            if npos > 0:
+                Y[pos_mask] = np.random.exponential(
+                    scale=1.0 / eta1,
+                    size=npos
+                )
+
+            nneg = neg_mask.sum()
+            if nneg > 0:
+                Y[neg_mask] = -np.random.exponential(
+                    scale=1.0 / eta2,
+                    size=nneg
+                )
+
+            jump_matrix[t, i] = Y.sum()
+
+    return jump_matrix
 
 def kou_process(S0: float, r: float, sigma: float, tau: float, dt: float, 
                 eta1: float, eta2: float, p: float, lambd: float, M: int = 5) -> Tuple[np.ndarray, np.ndarray]:
@@ -156,48 +147,6 @@ def kou_process(S0: float, r: float, sigma: float, tau: float, dt: float,
     print(np.exp(r * tau))
 
     return t, S
-
-def kou_process_steps(S0: float, r: float, sigma: float, tau: float, dt: float,
-                      eta1: float, eta2: float, p: float, lambd: float, M: int = 5) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Generate a single path of the Kou jump diffusion process.
-    
-    Parameters:
-    S0 (float): initial stock price
-    r (float): stock drift
-    sigma (float): volatility
-    tau (float): time to maturity
-    dt (float): time step
-    eta1 (float): parameter for positive jumps
-    eta2 (float): parameter for negative jumps
-    p (float): probability of positive jump
-    lambd (float): jump intensity
-    M (int): number of paths
-    
-    Returns:
-    Tuple[np.ndarray, np.ndarray]: (time_grid, stock_price_path)
-    """
-    N = int(tau / dt)
-    
-    log_S = np.zeros((N + 1, M))
-    log_S = np.full((N + 1, M), np.log(S0), dtype=float)
-    
-    t, dW = brownian_motion_diff(tau, dt, M)
-    jumps = np.random.poisson(lambd * dt, size=(N+1, M))
-
-    for step in range(1, N + 1):
-        Z = np.random.randn(M)
-        dW = Z * np.sqrt(dt)
-        log_S[step, :] = log_S[step-1, :] + (r * dt) + (sigma * dW)
-        Nj = jumps[step, :]
-        idxs_with_jumps = np.nonzero(Nj)[0]
-        if idxs_with_jumps.size > 0:
-            for i in idxs_with_jumps:
-                nj = Nj[i]
-                Ys = generate_jump_sizes(p, eta1, eta2, nj)
-                log_S[step, i] += Ys.sum()
-
-    return t[:N], np.exp(log_S)[:N, :]
 
 def kou_option_price_mc(S0: float, K: float, r: float, sigma: float, tau: float, dt: float,
                         eta1: float, eta2: float, p: float, lambd: float, M: int, 
@@ -361,32 +310,32 @@ def test_poisson_process() -> None:
     plt.grid()
     plt.show()
 
-def test_jump_pdf() -> None:
-    """Test the jump size PDF visualization."""
-    tau = 5
-    dt = 0.01
+# def test_jump_pdf() -> None:
+#     """Test the jump size PDF visualization."""
+#     tau = 5
+#     dt = 0.01
 
-    y, fdp = jumps_pdf(tau, dt, 0.3, 5, 5)
+#     y, fdp = jumps_pdf(tau, dt, 0.3, 5, 5)
     
-    plt.figure(figsize=(10, 6))
-    plt.plot(y, fdp, 'b-', linewidth=2)
-    plt.title('Kou Jump Diffusion - Jump Size PDF')
-    plt.xlabel('Jump Size')
-    plt.ylabel('Density')
-    plt.grid(True, alpha=0.3)
-    plt.axvline(x=0, color='r', linestyle='--', alpha=0.5)
-    plt.show()
+#     plt.figure(figsize=(10, 6))
+#     plt.plot(y, fdp, 'b-', linewidth=2)
+#     plt.title('Kou Jump Diffusion - Jump Size PDF')
+#     plt.xlabel('Jump Size')
+#     plt.ylabel('Density')
+#     plt.grid(True, alpha=0.3)
+#     plt.axvline(x=0, color='r', linestyle='--', alpha=0.5)
+#     plt.show()
 
 def test_kou_process() -> None:
     """Test the Kou process visualization."""
     S0 = 100
     r = 0.1
-    t, S = kou_process(S0=S0, r=r, sigma=0.16, tau=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=5)
+    t, S = kou_process(S0=S0, r=r, sigma=0.16, tau=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=10000)
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
     
-    for i in range(S.shape[1]):
+    for i in range(5):
         plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
     plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
@@ -452,8 +401,9 @@ def test_kou_pricing_mc() -> None:
     # print(f"Put-call parity difference: {parity_diff:.4f}")
 
 if __name__ == "__main__":
+    # print(poisson_process(10, 1, 0.01, 5))
     # measure(test_kou_pricing_mc)
-    # test_kou_process()
-    measure(test_kou_pricing)
-    measure(test_kou_pricing_mc)
+    test_kou_process()
+    # measure(test_kou_pricing)
+    # measure(test_kou_pricing_mc)
  

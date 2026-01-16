@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple, List
+from utils import colors
 
 def brownian_motion_diff(tau: float = 10, dt: float = 0.01, M: int = 1) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -129,7 +130,8 @@ def test_brownian_motion() -> None:
 
     # Plot all paths at once
     plt.figure(figsize=(10, 6))
-    plt.plot(t, BM)  # This plots all columns automatically
+    for i in range(BM.shape[1]):
+        plt.plot(t, BM[:, i], color=colors[i])
     plt.grid()
     plt.title(f'Brownian Motion - {BM.shape[1]} Paths')
     plt.xlabel('Time')
@@ -165,11 +167,11 @@ def test_cov_brownian_motion() -> None:
     plt.show()
 
 if __name__ == "__main__":
-    # test_brownian_motion()
+    test_brownian_motion()
     # test_geometric_brownian_motion()
     # test_cov_brownian_motion()
-    t, BM = brownian_motion(M=100_000)
-    t, BM2 = SimulateBM(M= 100_000)
+    # t, BM = brownian_motion(M=100_000)
+    # t, BM2 = SimulateBM(M= 100_000)
 
 
 

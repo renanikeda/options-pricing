@@ -94,7 +94,7 @@ def filter_recent_maturity(options_df: pd.DataFrame, min_trade_qty=5, spread_pri
     )
     return resultado
 
-def estimate_vol(asset_ticker: str, trade_date: str, r = 0.1, option_type: OptionType = OptionType.CALL):
+def estimate_vol(asset_ticker: str, trade_date: str, r = 0.1, min_trade_qty: int = 5, spread_price: float = 0.75, option_type: OptionType = OptionType.CALL):
     """
     Get the implied volatility for the most recent maturity option on a given trade date.
     
@@ -114,7 +114,7 @@ def estimate_vol(asset_ticker: str, trade_date: str, r = 0.1, option_type: Optio
     prices_df = get_asset_prices(asset_ticker, trade_date, trade_date)
     asset_price = prices_df['Asset Price'].values[0]
     
-    recent_maturity = filter_recent_maturity(options_df)
+    recent_maturity = filter_recent_maturity(options_df, min_trade_qty, spread_price)
     vol_surf = vol_surface(asset_ticker, trade_date, r=r, type='black')
     vol_surf = vol_surf.loc[vol_surf['Maturity'] == recent_maturity.iloc[0]['Maturity']]
     vol_surf['Price Difference'] = abs(vol_surf['Strike'] - asset_price)
@@ -153,13 +153,13 @@ def get_option_implied_vs_realized_vol(asset_ticker: str, start_date: str,
     prices_df.set_index('TradeDate', inplace=True)
     
     # Calculate realized volatility (EWMA)
-    realized_vol = ewma_volatility(prices_df['Asset Price'], span=window).copy()
+    realized_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
     # Prepare comparison DataFrame
     resultado = filter_recent_maturity(options_df, min_trade_qty=5)
-    print(resultado)
+    
     for _, row in resultado.iterrows():
         trade_date = row['TradeDate']
-        asset_price = row['Asset Price']
+        # asset_price = row['Asset Price']
         if trade_date not in realized_vol.index: continue
         print(trade_date)
         # # recent_maturity = row['Maturity']
@@ -202,7 +202,6 @@ def test_returns():
     t, W_k = kou_process(S0=S0, tau=tau, dt=dt, r=r, M=M, **kou_params)
     plot_returns(W_k, bins = int(50 * tau * 20))
 
-
 def test_smile():
     database = "2025-01-30"
     # maturity = "2025-06-20"
@@ -231,12 +230,12 @@ def test_smile():
 def test_vol():
     asset_ticker = 'PETR4'
     start_date = '2025-01-01'
-    end_date = '2025-01-20'
+    end_date = '2025-01-31'
     
     vol_comparison = get_option_implied_vs_realized_vol(asset_ticker, start_date, end_date, window=15)
     print(vol_comparison)
 
 if __name__ == "__main__":
-    # test_returns()
+    test_returns()
     # test_smile()
-    test_vol()
+    # test_vol()
