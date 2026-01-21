@@ -3,7 +3,7 @@ from functools import partial
 import numpy as np
 from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
-from utils import ndays, measure, get_option_data, save_params, load_params
+from utils import nworkdays, measure, get_option_data, save_params, load_params
 from typing import List, Dict, Callable
 import random
 
@@ -58,7 +58,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
         "rho": {"x0": -0.5, "limits": [-1,1]},
     }
 
-    data_ini = ndays(database, -1*_ndays)
+    data_ini = nworkdays(database, -1*_ndays)
     print('Dates: ', data_ini, database)
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
@@ -80,7 +80,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
 
 def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("kou", database, asset_ticker)
-    data_end = ndays(database, _ndays)
+    data_end = nworkdays(database, _ndays)
     options_full_data = get_option_data(asset_ticker, database, data_end)
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': 0.10, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
@@ -102,7 +102,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
         "p": {"x0": 0.5, "limits": [1e-2,1]},
         "lambd": {"x0": 0.5, "limits": [1e-2,15]},
     }
-    data_ini = ndays(database, -1*_ndays)
+    data_ini = nworkdays(database, -1*_ndays)
     print(data_ini, database)
 
     initial_params = [param["x0"] for key, param in params.items()]
@@ -125,8 +125,8 @@ if __name__ == "__main__":
     database = '2025-01-30'
     ticker = "PETR4"
     # print(get_option_data(ticker, database, ndays(database, 7)))
-    # measure(lambda: calibrate_heston_model(ticker, database, _ndays=7))
-    # validate_heston_model(ticker, database, _ndays=1)
-    measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
+    measure(lambda: calibrate_heston_model(ticker, database, _ndays=10))
+    validate_heston_model(ticker, database, _ndays=1)
+    measure(lambda: calibrate_kou_model(ticker, database, _ndays=10))
     validate_kou_model(ticker, database, _ndays=7)
 

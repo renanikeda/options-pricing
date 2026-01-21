@@ -227,9 +227,9 @@ def Hh(n: int, x: float) -> float:
     elif n == -1:
         return np.exp(-x**2/2)
     elif n == 0:
-        return math.sqrt(2*np.pi)*norm.cdf(-x)
+        return math.sqrt(2*np.pi) * norm.cdf(-x)
     else:
-        return (Hh(n-2,x)-x*Hh(n-1,x))/n
+        return (Hh(n-2,x) - x*Hh(n-1,x)) / n
 
 def I(n: int, c: int, alpha: int, beta: int, delta: int) -> float:
     if beta > 0 and alpha != 0:
@@ -341,12 +341,21 @@ def test_kou_process() -> None:
     """Test the Kou process visualization."""
     S0 = 100
     r = 0.1
-    t, S = kou_process(S0=S0, r=r, sigma=0.16, tau=1, dt=0.001, eta1=20, eta2=20, p=0.25, lambd=3, M=10000)
+    sigma=0.16
+    tau=1
+    dt=0.001
+    eta1=20
+    eta2=10
+    p=0.25
+    lambd=1
+    M=1000
+    t, S = kou_process(S0=S0, r=r, sigma=sigma, tau=tau, dt=dt,
+                       eta1=eta1, eta2=eta2, p=p, lambd=lambd, M=M)
     risk_free_rate = np.exp(r * t) * S0
 
     plt.figure(figsize=(10, 6))
     
-    for i in range(5):
+    for i in range(3):
         plt.plot(t, S[:, i], '.', color=colors[i], markersize=2)
     plt.plot(t, risk_free_rate, 'k-', linewidth=1)
     plt.title('Kou Jump Diffusion Process')
@@ -379,24 +388,24 @@ def test_kou_pricing() -> None:
 def test_kou_pricing_mc() -> None:
     """Test option pricing with Kou model."""
     # Parameters
-    S0 = 35     # Initial stock price
-    K = 50      # Strike price
+    S0 = 100     # Initial stock price
+    K = 98      # Strike price
 
-    sigma=0.18466325455862848
-    eta1=5.155862588020758
-    eta2=2.251317846148716
-    p=0.3654022986665395
-    lambd=0.33541150186003393
+    sigma=0.16
+    eta1=10
+    eta2=5
+    p=0.4
+    lambd=1
 
-    r = 0.1        # Risk-free rate
-    tau = 1.0      # Time to maturity
-    dt = 0.005
+    r = 5/100        # Risk-free rate
+    tau = 0.5      # Time to maturity
+    dt = 0.001
     # sigma = 0.16  # Volatility
     # eta1 = 10.0   # Positive jump parameter (> 1)
     # eta2 = 5.0    # Negative jump parameter (> 0)
     # p = 0.4       # Probability of positive jump
     # lambd = 1.0   # Jump intensity
-    M = 200_000   # Number of simulations
+    M = 300_000   # Number of simulations
     
     # Price call option
     call_price = kou_option_price_mc(S0, K, r, sigma, tau, dt, eta1, eta2, p, lambd, M, OptionType.CALL)
@@ -413,8 +422,8 @@ def test_kou_pricing_mc() -> None:
 
 if __name__ == "__main__":
     # print(poisson_process(10, 1, 0.01, 5))
-    # measure(test_kou_pricing_mc)
-    test_kou_process()
+    measure(test_kou_pricing_mc)
+    # test_kou_process()
     # measure(test_kou_pricing)
     # measure(test_kou_pricing_mc)
  

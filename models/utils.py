@@ -48,10 +48,10 @@ def gen_date_list(ini_date: str, end_date: str):
 
 def gen_valid_date_list(ini_date: str, ndays: int, return_format: str = '%Y%m%d'):
     start_date = datetime.strptime(ini_date, '%Y-%m-%d')
-    delta = timedelta(days=1)
+    delta = timedelta(days=1) if ndays >= 0 else timedelta(days=-1)
     counter = 0
     date_list = []
-    while counter < ndays:
+    while counter < abs(ndays):
         if os.path.exists(options_data(database=start_date.strftime('%Y%m%d'))):
             date_list.append(start_date.strftime(return_format))
             counter += 1
