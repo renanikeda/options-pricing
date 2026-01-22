@@ -204,7 +204,7 @@ def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float,
     Stochastic Volatility with Applications to Bond and Currency Options"
     """
     args = (S0, v0, K, kappa, theta, sigma, rho, tau, r)
-
+    # print({'S0': S0, 'v0': v0, 'K': K, 'kappa': kappa, 'theta': theta, 'sigma': sigma, 'rho': rho, 'tau': tau, 'r': r})
     # real_integral, err = np.real( quad(integrand, 0, 100, args=args))
     phi_max = 100
     integration1, _ = quad(integrand, 0, phi_max, args=(*args, 1), limit=500, epsabs=1e-8, epsrel=1e-8)

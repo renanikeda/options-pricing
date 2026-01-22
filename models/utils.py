@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from typing import List, Dict, Optional
 import json
+from bcb import sgs
 
 class OptionType(Enum):
     CALL = "call"
@@ -260,3 +261,13 @@ def get_asset_volatility(start_date: str, end_date: str, asset_ticker: Optional[
     
     return volatility
 
+def get_selic(date: str):
+    """
+    Retrieve the SELIC rate for a given date.
+    Parameters:
+        date (str): Date in 'YYYY-MM-DD' format.
+    """
+    return sgs.get(('selic', 432), start = date, end = date)['selic'].iloc[0]
+
+if __name__ == "__main__":
+    print(nworkdays('2025-01-10', 5))
