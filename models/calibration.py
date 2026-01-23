@@ -132,7 +132,7 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
 
     listified_model = listify_model(heston_price, market_params, list(params.keys()))
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
-    print(f'Mean Squared error for Heston model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
+    print(f'MSE Heston model on {database} to {data_end}: {sqr_err}')
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(heston_price(**market_params[i], **params ), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
@@ -176,7 +176,7 @@ def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     listified_model = listify_model(kou_option_price, market_params, list(params.keys()))
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
-    print(f'Mean Squared error for Kou model on {database} to {data_end}\nwith params {params}\nMSE: {sqr_err}')
+    print(f'MSE Kou model on {database} to {data_end}: {sqr_err}')
 
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(kou_option_price(**market_params[i], **params), 2))
@@ -219,7 +219,7 @@ def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10"
     print('Random params: ', random.sample(params, min(5, len(params))))
     listified_model = listify_model(black_scholes, params, [])
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, [])
-    print(f'Mean Squared error for Kou model on {database} to {data_end}\nMSE: {sqr_err}')
+    print(f'MSE Black-Scholes on {database} to {data_end}: {sqr_err}')
 
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(black_scholes(**params[i]), 2))
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     ticker = "PETR4"
     validate_black_scholes_model(ticker, database, _ndays=5)
     # measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
-    # validate_heston_model(ticker, database, _ndays=5)
+    validate_heston_model(ticker, database, _ndays=5)
     # measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
-    # validate_kou_model(ticker, database, _ndays=5)
+    validate_kou_model(ticker, database, _ndays=5)
 
