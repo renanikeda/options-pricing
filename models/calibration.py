@@ -126,8 +126,8 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     options_full_data = get_option_data(asset_ticker, database, data_end)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
 
-    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_v0(options_full_data, row['TradeDate'], r=r) } for _, row in options_full_data.iterrows()]
-    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_v0(options_full_data, row['TradeDate'], r=r) } for _, row in options_full_data.iterrows()]
+    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
     listified_model = listify_model(heston_price, market_params, list(params.keys()))
@@ -139,7 +139,7 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
 
 def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
     params = {
-        # "v0": {"x0": 0.1, "limits": [1e-3,0.5]},
+        "v0": {"x0": 0.1, "limits": [1e-3,0.5]},
         "kappa": {"x0": 0.5, "limits": [1e-3,5]},
         "theta": {"x0": 0.1, "limits": [1e-3,0.8]},
         "sigma": {"x0": 0.1, "limits": [1e-3,0.8]},
@@ -155,8 +155,10 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
 
     prices = options_full_data['LastPrice'].values
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_v0(options_full_data, row['TradeDate'], r=r) } for _, row in options_full_data.iterrows()]
-    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
+    params['v0']['x0'] = v0
+    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_v0(options_full_data, row['TradeDate'], r=r) } for _, row in options_full_data.iterrows()]
+    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
     heston_model_listified = listify_model(heston_price, market_params, list(params.keys()))
@@ -226,11 +228,13 @@ def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10"
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
 
 if __name__ == "__main__":
-    database = '2025-05-02'
+    # database = '2025-05-02'
+    database = '2025-01-30'
+    # database = '2020-10-16'
     ticker = "PETR4"
     validate_black_scholes_model(ticker, database, _ndays=5)
-    # measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
+    measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
     validate_heston_model(ticker, database, _ndays=5)
     # measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
-    validate_kou_model(ticker, database, _ndays=5)
+    # validate_kou_model(ticker, database, _ndays=5)
 
