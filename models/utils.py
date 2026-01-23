@@ -60,6 +60,11 @@ def gen_valid_date_list(ini_date: str, ndays: int, return_format: str = '%Y%m%d'
 
     return date_list
 
+def diff_days(date1: str, date2: str) -> int:
+    d1 = datetime.strptime(date1, '%Y-%m-%d')
+    d2 = datetime.strptime(date2, '%Y-%m-%d')
+    return abs((d2 - d1).days)
+
 def nworkdays(database:str, ndays: int):
     date_list = gen_valid_date_list(database, ndays, '%Y-%m-%d')
     return date_list[-1]
@@ -268,6 +273,7 @@ def get_selic(date: str):
         date (str): Date in 'YYYY-MM-DD' format.
     """
     return sgs.get(('selic', 432), start = date, end = date)['selic'].iloc[0]
+
 
 if __name__ == "__main__":
     print(nworkdays('2025-01-10', 5))

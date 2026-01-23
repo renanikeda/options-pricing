@@ -5,12 +5,12 @@ from brownian_motion import geometric_brownian_motion
 from utils import get_option_data, OptionType
 import pandas as pd
 
-def black_scholes(S, K, tau, r=0.07, sigma=0.2, option_type=OptionType.CALL):
+def black_scholes(S0, K, tau, r=0.07, sigma=0.2, option_type=OptionType.CALL):
     """
     Calculates the Black-Scholes-Merton option price.
 
     Parameters:
-    S (float): Current stock price
+    S0 (float): Current stock price
     K (float): Strike price
     tau (float): Time to expiration (in years)
     r (float): Risk-free interest rate (annualized)
@@ -21,13 +21,13 @@ def black_scholes(S, K, tau, r=0.07, sigma=0.2, option_type=OptionType.CALL):
     float: The calculated option price
     """
 
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * tau) / (sigma * np.sqrt(tau))
+    d1 = (np.log(S0 / K) + (r + 0.5 * sigma**2) * tau) / (sigma * np.sqrt(tau))
     d2 = d1 - sigma * np.sqrt(tau)
 
     if option_type == OptionType.CALL:
-        return S * norm.cdf(d1) - K * np.exp(-r * tau) * norm.cdf(d2)
+        return S0 * norm.cdf(d1) - K * np.exp(-r * tau) * norm.cdf(d2)
     elif option_type == OptionType.PUT:
-        return K * np.exp(-r * tau) * norm.cdf(-d2) - S * norm.cdf(-d1)
+        return K * np.exp(-r * tau) * norm.cdf(-d2) - S0 * norm.cdf(-d1)
     else:
         raise ValueError("option_type must be 'call' or 'put'")
 
