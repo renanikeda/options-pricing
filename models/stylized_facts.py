@@ -11,15 +11,19 @@ from typing import Literal
 from black_scholes import implied_vol
 from heston_model import heston_model, heston_price
 from kou_jump_diffusion import kou_option_price, kou_process
-from utils import OptionType, ewma_volatility, get_option_data, get_asset_prices, load_params, nworkdays, OptionStyle
+from calibration import estimate_v0
+from utils import OptionType, ewma_volatility, get_option_data, get_asset_prices, get_selic, load_params, nworkdays, OptionStyle
 
-def vol_surface(ticker: str, database: str, r: float = 0.1, type: Literal['heston', 'kou', 'black'] = 'black', verbose=False):
+def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'black'] = 'black', verbose=False):
     options_data = get_option_data(ticker, database, database)
     options_data = options_data[options_data['Asset Ticker'] == ticker]
     imp_vols = []
+    r = get_selic(options_data.iloc[0]['TradeDate']) / 100
     for (_, row) in options_data.iterrows():
         if type == 'heston':
             params = load_params("heston", database, ticker)
+            if 'v0' not in params:
+                params['v0'] = estimate_v0(options_data, row['TradeDate'], r=r)
             price = heston_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
             if verbose: print(f"Heston price: {price:.2f}, Market price: {row['LastPrice']}")
         elif type == 'kou':
@@ -178,14 +182,17 @@ def test_returns():
     tau=0.5
     r=0.1
     sigma=0.5
-    M=25
+    M=1
     dt=0.001
     database = "2025-01-30"
+    # database = "2020-10-16"
     ticker = 'PETR4'
 
-    dataend = nworkdays(database, int(252/2))
-    print(database, dataend)
-    S = get_asset_prices(ticker, database, dataend)
+    # dataend = nworkdays(database, int(252/2))
+    data_start =  nworkdays(database, 2)
+    data_end = nworkdays(data_start, int(230))
+    print(data_start, data_end)
+    S = get_asset_prices(ticker, data_start, data_end)
     S = S['Asset Price'].values
     plot_returns(S)
 
@@ -200,27 +207,33 @@ def test_returns():
     kou_params = load_params('kou', database, ticker)
     print(kou_params)
     t, W_k = kou_process(S0=S0, tau=tau, dt=dt, r=r, M=M, **kou_params)
-    plot_returns(W_k, bins = int(50 * tau * 20))
+    # plot_returns(W_k, bins = int(50 * tau * 20))
+    plot_returns(W_k)
 
 def test_smile():
     database = "2025-01-30"
-    # maturity = "2025-06-20"
     maturity = "2025-03-21"
+    # database = "2020-10-16"
+    # maturity = "2020-12-21"
+    # database = "2025-05-02"
+    # maturity = "2025-06-20"
     ticker = "PETR4"
     # model = 'kou'  # 'heston', 'kou', 'black'
     # df = vol_surface(ticker, database, 0.1, model)
     # df = df[df['Maturity'] == maturity]
-    surface_black = vol_surface(ticker, database, 0.1, 'black')
-    surface_black = surface_black[surface_black['Maturity'] == maturity]
-    surface_heston = vol_surface(ticker, database, 0.1, 'heston')
-    surface_heston = surface_heston[surface_heston['Maturity'] == maturity]
-    surface_kou = vol_surface(ticker, database, 0.1, 'kou')
-    surface_kou = surface_kou[surface_kou['Maturity'] == maturity]
+    surface_black = vol_surface(ticker, database, 'black')
+    print(surface_black['Maturity'].value_counts())
+    surface_black = surface_black[surface_black['Maturity'] == maturity].sort_values(by='Strike')
+    surface_heston = vol_surface(ticker, database, 'heston')
+    surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
+    surface_kou = vol_surface(ticker, database, 'kou')
+    surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
+    # print(surface_heston)
     plt.figure(figsize=(10, 6))
     plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
-    plt.scatter(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', label='Heston Implied Volatility', s=10)
-    plt.scatter(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', label='Kou Implied Volatility', s=10)
-    plt.title(f'Implied Volatility Smile for {ticker} on maturity {maturity}')
+    plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
+    plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
+    plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
     plt.xlabel('Strike Price')
     plt.ylabel('Implied Volatility')
     plt.legend()
@@ -236,6 +249,6 @@ def test_vol():
     print(vol_comparison)
 
 if __name__ == "__main__":
-    test_returns()
-    # test_smile()
+    # test_returns()
+    test_smile()
     # test_vol()

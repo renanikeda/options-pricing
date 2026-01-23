@@ -4,7 +4,7 @@ import numpy as np
 from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
 from utils import diff_days, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic
-from black_scholes import black_scholes, implied_vol
+from black_scholes import black_scholes, black_scholes_vega, implied_vol
 from typing import List, Dict, Callable
 import random
 import pandas as pd
@@ -28,7 +28,11 @@ def squared_error(model: Callable, prices: List[float], params: Dict) -> float:
     ## Fazer isso para cada maturidade, strike e taxa
     # print(model(params)[:5])
     # print(prices[:5])
-    return np.sum((model(params) - prices) ** 2) + penality
+    # w = 1/prices
+    eps = 1e-3
+    # vega = black_scholes_vega()
+    w = 1 / np.maximum(prices, eps)
+    return np.sum(w*(prices - model(params)) ** 2) + penality
 
 def listify_model(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str]) -> Callable:
     def func(calibrating_params):
@@ -52,13 +56,13 @@ def estimate_v0(options_data: pd.DataFrame, data_trade: str, spread_price: float
     vol = default_vol if vol is np.nan else vol
     return vol ** 2
 
-def estimate_sigma(options_data_base: pd.DataFrame, data_trade: str, new_strike: float, new_maturity: str, spread_price: float = 0.5, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol: float = 0.1) -> float:
+def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_maturity: str, spread_price: float = 0.5, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol: float = 0.1) -> float:
     """
     Estimate implied volatility for a given strike and maturity by finding the closest match in the dataset.
     
     Parameters:
     options_data_base (pd.DataFrame): full options dataset
-    data_trade (str): trade date to filter
+    data_base (str): trade date to filter
     new_strike (float): target strike price
     new_maturity (str): target maturity date
     spread_price (float): maximum oscillation percentage
@@ -71,7 +75,8 @@ def estimate_sigma(options_data_base: pd.DataFrame, data_trade: str, new_strike:
     float: estimated implied volatility
     """
     # Filter by trade date and quality criteria
-    filtered_data = options_data_base[options_data_base['TradeDate'] == data_trade]
+    options_data_base = get_option_data(asset_ticker, data_base, data_base)
+    filtered_data = options_data_base[options_data_base['TradeDate'] == data_base]
     filtered_data = filtered_data[filtered_data['OscnPctg'] <= spread_price]
     filtered_data = filtered_data[filtered_data['TradeQty'] >= min_trade_qty]
     
@@ -116,17 +121,17 @@ def estimate_sigma(options_data_base: pd.DataFrame, data_trade: str, new_strike:
     
     # Return default if calculation fails
     # return default_vol if (vol is None or np.isnan(vol)) else vol
-    return vol
+    return vol if vol is not np.nan else default_vol
 
 def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("heston", database, asset_ticker)
+    print(params)
     database =  nworkdays(database, 2)
     data_end = nworkdays(database, _ndays)
-    print('Dates: ', database, database)
     options_full_data = get_option_data(asset_ticker, database, data_end)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
 
-    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_v0(options_full_data, row['TradeDate'], r=r) } for _, row in options_full_data.iterrows()]
+    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_sigma(ticker, database,new_maturity=row['Maturity'], new_strike=row['Strike'], r=r)**2 } for _, row in options_full_data.iterrows()]
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
@@ -139,11 +144,11 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
 
 def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
     params = {
-        "v0": {"x0": 0.1, "limits": [1e-3,0.5]},
-        "kappa": {"x0": 0.5, "limits": [1e-3,5]},
+        "v0": {"x0": 0.05, "limits": [1e-3,0.5]},
+        "kappa": {"x0": 1, "limits": [1e-3,7]},
         "theta": {"x0": 0.1, "limits": [1e-3,0.8]},
         "sigma": {"x0": 0.1, "limits": [1e-3,0.8]},
-        "rho": {"x0": -0.2, "limits": [-1,1]},
+        "rho": {"x0": -0.4, "limits": [-1,1]},
     }
 
     data_ini = nworkdays(database, -1*_ndays)
@@ -157,12 +162,12 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
     params['v0']['x0'] = v0
-    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_v0(options_full_data, row['TradeDate'], r=r) } for _, row in options_full_data.iterrows()]
+    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_sigma(ticker, database,new_maturity=row['Maturity'], new_strike=row['Strike'], r=r)**2 } for _, row in options_full_data.iterrows()]
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
     heston_model_listified = listify_model(heston_price, market_params, list(params.keys()))
-    result = minimize(partial(squared_error, heston_model_listified, prices), initial_params, tol = 1e-3, method='SLSQP', options={'maxiter': 1e4 }, bounds=limit_params)
+    result = minimize(partial(squared_error, heston_model_listified, prices), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     print("params: ", {**result_params})
@@ -171,6 +176,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
 
 def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("kou", database, asset_ticker)
+    print(params)
     database =  nworkdays(database, 2)
     data_end = nworkdays(database, _ndays)
     options_full_data = get_option_data(asset_ticker, database, data_end)
@@ -206,22 +212,22 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
     kou_model_listified = listify_model(kou_option_price, market_params, list(params.keys()))
-    result = minimize(partial(squared_error, kou_model_listified, prices), initial_params, tol = 1e-3, method='SLSQP', options={'maxiter': 1e4 }, bounds=limit_params)
+    result = minimize(partial(squared_error, kou_model_listified, prices), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     print("params: ", {**result_params})
     save_params("kou", database, asset_ticker, result_params)
 
 def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
-    database =  nworkdays(database, 2)
-    data_end = nworkdays(database, _ndays)
-    options_full_data = get_option_data(asset_ticker, database, data_end)
+    data_start =  nworkdays(database, 2)
+    data_end = nworkdays(data_start, _ndays)
+    options_full_data = get_option_data(asset_ticker, data_start, data_end)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-    params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'sigma': estimate_sigma(options_full_data, database, row['Strike'], row['Maturity']) } for _, row in options_full_data.iterrows()]
+    params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'sigma': estimate_sigma(asset_ticker, database, new_strike=row['Strike'], new_maturity=row['Maturity'], r=r) } for _, row in options_full_data.iterrows()]
     print('Random params: ', random.sample(params, min(5, len(params))))
     listified_model = listify_model(black_scholes, params, [])
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, [])
-    print(f'MSE Black-Scholes on {database} to {data_end}: {sqr_err}')
+    print(f'MSE Black-Scholes on {data_start} to {data_end}: {sqr_err}')
 
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(black_scholes(**params[i]), 2))
