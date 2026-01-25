@@ -26,18 +26,41 @@ def squared_error(model: Callable, prices: List[float], params: Dict) -> float:
     """
     penality = 0
     ## Fazer isso para cada maturidade, strike e taxa
-    # print(model(params)[:5])
-    # print(prices[:5])
-    # w = 1/prices
+
+    return np.sum((prices - model(params)) ** 2) + penality
+
+def minimize_prices(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str], optmizing_params_values: List[str]) -> float:
+    err = np.array([])
     eps = 1e-3
-    # vega = black_scholes_vega()
-    w = 1 / np.maximum(prices, eps)
-    return np.sum(w*(prices - model(params)) ** 2) + penality
+    for market_param in market_params:
+        price = market_param['price']
+        named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, optmizing_params_values)}
+        model_price = model(**market_param, **named_calibrating_params)
+        weight = 1/np.maximum(price**2, eps)
+        err = np.append(err, weight*(price - model_price) ** 2)
+    return np.sum(err)
+
+def minimize_imp_vol(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str], optmizing_params_values: List[str]) -> float:
+    err = np.array([])
+    for market_param in market_params:
+        market_imp_vol = implied_vol(market_param['price'], market_param['S0'], market_param['K'], market_param['tau'], r=market_param['r'])
+        named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, optmizing_params_values)}
+        model_imp_vol = implied_vol(model(**market_param, **named_calibrating_params), market_param['S0'], market_param['K'], market_param['tau'], r=market_param['r'])
+        # print({'imp vol': market_imp_vol, 'est imp vol': model_imp_vol, **named_calibrating_params})
+
+        err = np.append(err, (market_imp_vol - model_imp_vol) ** 2)
+    return np.sum(err)
 
 def listify_model(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str]) -> Callable:
     def func(calibrating_params):
         named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, calibrating_params)}
-        return [partial(model, **params)(**named_calibrating_params) for params in market_params]
+        return [model(**params, **named_calibrating_params) for params in market_params]
+    return func
+
+def listify_model_imp_vol(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str]) -> Callable:
+    def func(calibrating_params):
+        named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, calibrating_params)}
+        return [implied_vol(model(**params, **named_calibrating_params), **params) for params in market_params]
     return func
 
 def estimate_v0(options_data: pd.DataFrame, data_trade: str, spread_price: float = 0.5, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol = 0.1) -> pd.DataFrame:
@@ -131,7 +154,6 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     options_full_data = get_option_data(asset_ticker, database, data_end)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
 
-    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_sigma(ticker, database,new_maturity=row['Maturity'], new_strike=row['Strike'], r=r)**2 } for _, row in options_full_data.iterrows()]
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
@@ -162,12 +184,40 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
     params['v0']['x0'] = v0
-    # market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': estimate_sigma(ticker, database,new_maturity=row['Maturity'], new_strike=row['Strike'], r=r)**2 } for _, row in options_full_data.iterrows()]
-    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+
+    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
-    heston_model_listified = listify_model(heston_price, market_params, list(params.keys()))
-    result = minimize(partial(squared_error, heston_model_listified, prices), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
+    result = minimize(partial(minimize_prices, heston_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
+    result_params = {key: value for key, value in zip(params.keys(), result.x)}
+
+    print("params: ", {**result_params})
+    save_params("heston", database, ticker, result_params)
+
+def calibrate_imp_vol_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
+    params = {
+        "v0": {"x0": 0.05, "limits": [1e-3,0.5]},
+        "kappa": {"x0": 1, "limits": [1e-3,7]},
+        "theta": {"x0": 0.1, "limits": [1e-3,0.8]},
+        "sigma": {"x0": 0.1, "limits": [1e-3,0.8]},
+        "rho": {"x0": -0.4, "limits": [-1,1]},
+    }
+
+    data_ini = nworkdays(database, -1*_ndays)
+    print('Dates: ', data_ini, database)
+    initial_params = [param["x0"] for key, param in params.items()]
+    limit_params = [param["limits"] for key, param in params.items()]
+
+    options_full_data = get_option_data(ticker, data_ini, database)
+
+    r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
+    v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
+    params['v0']['x0'] = v0
+
+    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
+
+    result = minimize(partial(minimize_imp_vol, heston_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     print("params: ", {**result_params})
@@ -206,17 +256,41 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     limit_params = [param["limits"] for key, param in params.items()]
     options_full_data = get_option_data(asset_ticker, data_ini, database)
 
-    prices = options_full_data['LastPrice'].values
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-    market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
-    kou_model_listified = listify_model(kou_option_price, market_params, list(params.keys()))
-    result = minimize(partial(squared_error, kou_model_listified, prices), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
+    result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     print("params: ", {**result_params})
     save_params("kou", database, asset_ticker, result_params)
+
+def calibrate_imp_vol_kou_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
+    params = {
+        "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
+        "eta1": {"x0": 2, "limits": [1e-2,50]},
+        "eta2": {"x0": 2, "limits": [1e-2,50]},
+        "p": {"x0": 0.5, "limits": [1e-2,1]},
+        "lambd": {"x0": 0.5, "limits": [1e-2,15]},
+    }
+    data_ini = nworkdays(database, -1*_ndays)
+    print('Dates: ', data_ini, database)
+    initial_params = [param["x0"] for key, param in params.items()]
+    limit_params = [param["limits"] for key, param in params.items()]
+
+    options_full_data = get_option_data(ticker, data_ini, database)
+
+    r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
+
+    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
+
+    result = minimize(partial(minimize_imp_vol, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
+    result_params = {key: value for key, value in zip(params.keys(), result.x)}
+
+    print("params: ", {**result_params})
+    save_params("kou", database, ticker, result_params)
 
 def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
     data_start =  nworkdays(database, 2)
@@ -234,13 +308,15 @@ def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10"
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
 
 if __name__ == "__main__":
-    # database = '2025-05-02'
-    database = '2025-01-30'
+    database = '2023-01-20'
+    # database = '2025-01-30'
     # database = '2020-10-16'
     ticker = "PETR4"
     validate_black_scholes_model(ticker, database, _ndays=5)
+    # measure(lambda: calibrate_imp_vol_heston_model(ticker, database, _ndays=5))
     measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
     validate_heston_model(ticker, database, _ndays=5)
-    # measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
-    # validate_kou_model(ticker, database, _ndays=5)
+    # measure(lambda: calibrate_imp_vol_kou_model(ticker, database, _ndays=5))
+    measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
+    validate_kou_model(ticker, database, _ndays=5)
 

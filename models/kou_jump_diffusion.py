@@ -281,7 +281,7 @@ def Upsilon(x, tau, mu, sigma, lambd, eta1, eta2, p):
 
 def kou_option_price(S0: float, K: float, r: float, sigma: float, tau: float, 
                      eta1: float, eta2: float, p: float, lambd: float,  
-                     option_type: OptionType = OptionType.CALL) -> None:
+                     option_type: OptionType = OptionType.CALL, **kwargs: dict) -> None:
     """
     Price option using Kou model (incomplete implementation).
     

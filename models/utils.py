@@ -272,13 +272,20 @@ def get_asset_volatility(start_date: str, end_date: str, asset_ticker: Optional[
     
     return volatility
 
-def get_selic(date: str):
+def get_selic(date: str, max_retries = 3) -> float:
     """
     Retrieve the SELIC rate for a given date.
     Parameters:
         date (str): Date in 'YYYY-MM-DD' format.
     """
-    return sgs.get(('selic', 432), start = date, end = date)['selic'].iloc[0]
+    try:
+        return sgs.get(('selic', 432), start = date, end = date)['selic'].iloc[0]
+    except:
+        if max_retries > 0:
+            time.sleep(1)
+            return get_selic(date, max_retries - 1)
+        else:
+            raise RuntimeError(f"Failed to retrieve SELIC rate for date {date} after multiple attempts.")
 
 
 if __name__ == "__main__":

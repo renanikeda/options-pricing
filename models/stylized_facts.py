@@ -212,17 +212,15 @@ def test_returns():
 
 def test_smile():
     database = "2025-01-30"
-    maturity = "2025-03-21"
-    # database = "2020-10-16"
-    # maturity = "2020-12-21"
-    # database = "2025-05-02"
-    # maturity = "2025-06-20"
+    database = "2020-10-16"
+    database = "2023-01-20"
     ticker = "PETR4"
     # model = 'kou'  # 'heston', 'kou', 'black'
     # df = vol_surface(ticker, database, 0.1, model)
     # df = df[df['Maturity'] == maturity]
     surface_black = vol_surface(ticker, database, 'black')
-    print(surface_black['Maturity'].value_counts())
+    # print(surface_black['Maturity'].value_counts().sort_values(ascending=False).index[0])
+    maturity = surface_black['Maturity'].value_counts().sort_values(ascending=False).index[0]
     surface_black = surface_black[surface_black['Maturity'] == maturity].sort_values(by='Strike')
     surface_heston = vol_surface(ticker, database, 'heston')
     surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')

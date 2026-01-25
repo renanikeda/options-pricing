@@ -172,7 +172,7 @@ def integrand(phi: float, S0: float, v0: float, K: float, kappa: float, theta: f
     return np.real(result)
 
 def heston_price(S0: float, K: float, v0: float, kappa: float, theta: float, 
-                sigma: float, rho: float, tau: float, r: float) -> float:
+                sigma: float, rho: float, tau: float, r: float, **kwargs: dict) -> float:
     """
     Calculate European call option price using the Heston model semi-analytical formula.
     
