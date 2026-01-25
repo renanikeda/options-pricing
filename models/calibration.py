@@ -312,9 +312,9 @@ if __name__ == "__main__":
     ticker = "PETR4"
     validate_black_scholes_model(ticker, database, _ndays=5)
     # measure(lambda: calibrate_imp_vol_heston_model(ticker, database, _ndays=5))
-    measure(lambda: calibrate_heston_model(ticker, database, _ndays=8))
+    measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
     validate_heston_model(ticker, database, _ndays=5)
     # measure(lambda: calibrate_imp_vol_kou_model(ticker, database, _ndays=5))
-    measure(lambda: calibrate_kou_model(ticker, database, _ndays=8))
+    measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
     validate_kou_model(ticker, database, _ndays=5)
 
