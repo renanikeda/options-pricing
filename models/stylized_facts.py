@@ -212,8 +212,8 @@ def test_returns():
 
 def test_smile():
     database = "2025-01-30"
-    database = "2020-10-16"
     database = "2023-01-20"
+    database = "2020-10-16"
     ticker = "PETR4"
     # model = 'kou'  # 'heston', 'kou', 'black'
     # df = vol_surface(ticker, database, 0.1, model)
@@ -229,6 +229,7 @@ def test_smile():
     # print(surface_heston)
     plt.figure(figsize=(10, 6))
     plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
+    # plt.scatter(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', label='Heston Implied Volatility', s=10)
     plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
     plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
     plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')

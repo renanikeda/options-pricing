@@ -179,8 +179,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     limit_params = [param["limits"] for key, param in params.items()]
 
     options_full_data = get_option_data(ticker, data_ini, database)
-
-    prices = options_full_data['LastPrice'].values
+    print(len(options_full_data))
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
     params['v0']['x0'] = v0
@@ -191,7 +190,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     result = minimize(partial(minimize_prices, heston_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
-    print("params: ", {**result_params})
+    # print("params: ", {**result_params})
     save_params("heston", database, ticker, result_params)
 
 def calibrate_imp_vol_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
@@ -209,7 +208,6 @@ def calibrate_imp_vol_heston_model(ticker: str, database: str = "2020-09-10", _n
     limit_params = [param["limits"] for key, param in params.items()]
 
     options_full_data = get_option_data(ticker, data_ini, database)
-
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
     params['v0']['x0'] = v0
@@ -255,7 +253,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
     options_full_data = get_option_data(asset_ticker, data_ini, database)
-
+    print(len(options_full_data))
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
@@ -263,7 +261,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
-    print("params: ", {**result_params})
+    # print("params: ", {**result_params})
     save_params("kou", database, asset_ticker, result_params)
 
 def calibrate_imp_vol_kou_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
@@ -308,15 +306,15 @@ def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10"
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
 
 if __name__ == "__main__":
-    database = '2023-01-20'
+    # database = '2023-01-20'
     # database = '2025-01-30'
-    # database = '2020-10-16'
+    database = '2020-10-16'
     ticker = "PETR4"
     validate_black_scholes_model(ticker, database, _ndays=5)
     # measure(lambda: calibrate_imp_vol_heston_model(ticker, database, _ndays=5))
-    measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
+    measure(lambda: calibrate_heston_model(ticker, database, _ndays=8))
     validate_heston_model(ticker, database, _ndays=5)
     # measure(lambda: calibrate_imp_vol_kou_model(ticker, database, _ndays=5))
-    measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
+    measure(lambda: calibrate_kou_model(ticker, database, _ndays=8))
     validate_kou_model(ticker, database, _ndays=5)
 
