@@ -85,7 +85,7 @@ def measure(func):
         print(f"Elapsed time for {func.__name__}: {round((diff)/60, 2)} minutes")
     return res
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, moneyness_divergence: float = 0.20, min_maturity_dist: float = 15/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, moneyness_divergence: float = 0.25, min_maturity_dist: float = 5/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     
@@ -116,7 +116,7 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, moneyness
     type_value = depara_option_type(type)
     full_prices = full_prices[full_prices['Type'] == type_value]
     full_prices = full_prices[full_prices['Style'] == style.value]
-    full_prices = full_prices[full_prices['Days to Maturity'] > min_maturity_dist]
+    full_prices = full_prices[full_prices['Days to Maturity'] >= min_maturity_dist]
     full_prices['moneyness'] = full_prices['Asset Price'] / full_prices['Strike']
     full_prices = full_prices[(full_prices['moneyness'] >= (1 - moneyness_divergence)) & 
                               (full_prices['moneyness'] <= (1 + moneyness_divergence))]

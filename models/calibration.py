@@ -30,8 +30,8 @@ def squared_error(model: Callable, prices: List[float], params: Dict) -> float:
     return np.sum((prices - model(params)) ** 2) + penality
 
 def minimize_prices(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str], optmizing_params_values: List[str]) -> float:
-    err = np.array([])
-    eps = 1e-2
+    err = 0
+    eps = 1e-3
     for market_param in market_params:
         price = market_param['price']
         named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, optmizing_params_values)}
@@ -42,8 +42,8 @@ def minimize_prices(model: Callable, market_params: List[Dict], optmizing_params
         # imp_vol = eps if np.isnan(imp_vol) else imp_vol
         # weight = 1/np.maximum(black_scholes_vega(market_param['S0'], market_param['K'], sigma=imp_vol, tau=market_param['tau'], r=market_param['r']), eps)**2
         # err = np.append(err, weight*((np.log(price) - np.log(model_price)) ** 2))
-        err = np.append(err, weight*((price - model_price) ** 2))
-    return np.sum(err)
+        err += weight*((price - model_price) ** 2)
+    return err
 
 def minimize_imp_vol(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str], optmizing_params_values: List[str]) -> float:
     err = np.array([])
@@ -244,10 +244,10 @@ def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
 def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
 
     params = {
-        "sigma": {"x0": 0.3, "limits": [1e-2,1]},
-        "eta1": {"x0": 2, "limits": [1e-2,50]},
-        "eta2": {"x0": 2, "limits": [1e-2,50]},
-        "p": {"x0": 0.5, "limits": [1e-2,1]},
+        "sigma": {"x0": 0.3, "limits": [1e-2,0.8]},
+        "eta1": {"x0": 10, "limits": [1e-2,50]},
+        "eta2": {"x0": 10, "limits": [1e-2,50]},
+        "p": {"x0": 0.4, "limits": [1e-2,1]},
         "lambd": {"x0": 0.5, "limits": [1e-2,15]},
     }
     data_ini = nworkdays(database, -1*_ndays)
@@ -318,10 +318,8 @@ if __name__ == "__main__":
     # for database in ['2021-04-05']:
     for database in ['2025-01-30']:
         validate_black_scholes_model(ticker, database, _ndays=5)
-        # measure(lambda: calibrate_imp_vol_heston_model(ticker, database, _ndays=5))
         measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
         validate_heston_model(ticker, database, _ndays=5)
-        # measure(lambda: calibrate_imp_vol_kou_model(ticker, database, _ndays=5))
         measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
         validate_kou_model(ticker, database, _ndays=5)
 
