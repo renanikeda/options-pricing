@@ -37,6 +37,8 @@ def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'blac
         imp_vols.append(imp_vol)
     vol_surface = pd.DataFrame()
     vol_surface['Strike'] = options_data['Strike']
+    # vol_surface['LastPrice'] = options_data['LastPrice']
+    # vol_surface['Asset Price'] = options_data['Asset Price']
     vol_surface['Maturity'] = options_data['Maturity']    
     vol_surface['Days to Maturity'] = options_data['Days to Maturity']    
     vol_surface['Implied Volatility'] = imp_vols
@@ -212,24 +214,20 @@ def test_returns():
 
 def test_smile():
     database = "2025-01-30"
-    database = "2023-01-20"
-    database = "2020-10-16"
+    # database = "2023-09-01"
+    # database = "2020-10-16"
+    # database = "2023-11-01"
     ticker = "PETR4"
-    # model = 'kou'  # 'heston', 'kou', 'black'
-    # df = vol_surface(ticker, database, 0.1, model)
-    # df = df[df['Maturity'] == maturity]
     surface_black = vol_surface(ticker, database, 'black')
-    # print(surface_black['Maturity'].value_counts().sort_values(ascending=False).index[0])
+    # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
     maturity = surface_black['Maturity'].value_counts().sort_values(ascending=False).index[0]
     surface_black = surface_black[surface_black['Maturity'] == maturity].sort_values(by='Strike')
     surface_heston = vol_surface(ticker, database, 'heston')
     surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
     surface_kou = vol_surface(ticker, database, 'kou')
     surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
-    # print(surface_heston)
     plt.figure(figsize=(10, 6))
     plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
-    # plt.scatter(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', label='Heston Implied Volatility', s=10)
     plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
     plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
     plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
