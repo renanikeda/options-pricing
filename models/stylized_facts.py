@@ -213,10 +213,10 @@ def test_returns():
     plot_returns(W_k)
 
 def test_smile():
-    database = "2025-01-30"
-    # database = "2023-09-01"
+    # database = "2025-01-30"
+    database = "2023-11-01"
+    # database = "2021-04-05"
     # database = "2020-10-16"
-    # database = "2023-11-01"
     ticker = "PETR4"
     surface_black = vol_surface(ticker, database, 'black')
     # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))

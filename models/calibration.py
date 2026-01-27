@@ -314,9 +314,9 @@ if __name__ == "__main__":
     # database = '2025-01-30'
     # database = '2020-10-16'
     ticker = "PETR4"
-    # for database in ['2020-10-16', '2023-11-01', '2025-01-30']:
+    for database in ['2020-10-16', '2021-04-05', '2023-11-01', '2025-01-30']:
     # for database in ['2021-04-05']:
-    for database in ['2025-01-30']:
+    # for database in ['2025-01-30']:
         validate_black_scholes_model(ticker, database, _ndays=5)
         measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
         validate_heston_model(ticker, database, _ndays=5)

@@ -85,7 +85,7 @@ def measure(func):
         print(f"Elapsed time for {func.__name__}: {round((diff)/60, 2)} minutes")
     return res
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, moneyness_divergence: float = 0.25, min_maturity_dist: float = 5/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, moneyness_divergence: float = 0.25, min_maturity_dist: float = 1/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     
