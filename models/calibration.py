@@ -250,7 +250,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
-    result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='L-BFGS-B', options={'maxiter': 1e3 }, bounds=limit_params)
+    result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e3 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     # print("params: ", {**result_params})
