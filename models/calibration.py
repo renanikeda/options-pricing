@@ -60,12 +60,6 @@ def listify_model(model: Callable, market_params: List[Dict], optmizing_params_k
         return [model(**params, **named_calibrating_params) for params in market_params]
     return func
 
-def listify_model_imp_vol(model: Callable, market_params: List[Dict], optmizing_params_keys: List[str]) -> Callable:
-    def func(calibrating_params):
-        named_calibrating_params = {key: value for key, value in zip(optmizing_params_keys, calibrating_params)}
-        return [implied_vol(model(**params, **named_calibrating_params), **params) for params in market_params]
-    return func
-
 def estimate_v0(options_data: pd.DataFrame, data_trade: str, spread_price: float = 0.5, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol = 0.1) -> pd.DataFrame:
     filtered_data = options_data[options_data['TradeDate'] == data_trade]
     filtered_data = filtered_data[filtered_data['OscnPctg'] <= spread_price]
@@ -184,8 +178,6 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     options_full_data = get_option_data(ticker, data_ini, database)
     print(len(options_full_data))
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-    # v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
-    # params['v0']['x0'] = v0
 
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
@@ -193,7 +185,6 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     result = minimize(partial(minimize_prices, heston_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e3 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
-    # print("params: ", {**result_params})
     save_params("heston", database, ticker, result_params)
 
 def calibrate_imp_vol_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
@@ -212,8 +203,6 @@ def calibrate_imp_vol_heston_model(ticker: str, database: str = "2020-09-10", _n
 
     options_full_data = get_option_data(ticker, data_ini, database)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-    # v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
-    # params['v0']['x0'] = v0
 
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
@@ -261,7 +250,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
-    result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e3 }, bounds=limit_params)
+    result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='L-BFGS-B', options={'maxiter': 1e3 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     # print("params: ", {**result_params})
@@ -269,7 +258,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
 
 def calibrate_imp_vol_kou_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
     params = {
-        "sigma": {"x0": 0.3, "limits": [1e-2,0.5]},
+        "sigma": {"x0": 0.3, "limits": [1e-2,0.8]},
         "eta1": {"x0": 10, "limits": [1.01, 50]},
         "eta2": {"x0": 10, "limits": [1e-2, 50]},
         "p": {"x0": 0.4, "limits": [1e-2,1]},
@@ -287,7 +276,7 @@ def calibrate_imp_vol_kou_model(ticker: str, database: str = "2020-09-10", _nday
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
-    result = minimize(partial(minimize_imp_vol, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
+    result = minimize(partial(minimize_imp_vol, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='L-BFGS-B', options={'maxiter': 1e5 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     print("params: ", {**result_params})
