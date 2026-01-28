@@ -152,9 +152,9 @@ def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_mat
 def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("heston", database, asset_ticker)
     print(params)
-    database =  nworkdays(database, 2)
-    data_end = nworkdays(database, _ndays)
-    options_full_data = get_option_data(asset_ticker, database, data_end)
+    data_start =  nworkdays(database, 2)
+    data_end = nworkdays(data_start, _ndays)
+    options_full_data = get_option_data(asset_ticker, data_start, data_end)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
@@ -162,7 +162,7 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
 
     listified_model = listify_model(heston_price, market_params, list(params.keys()))
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, list(params.values()))
-    print(f'MSE Heston model on {database} to {data_end}: {sqr_err}')
+    print(f'MSE Heston model on {data_start} to {data_end}: {sqr_err}')
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(heston_price(**market_params[i], **params ), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
@@ -184,8 +184,8 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     options_full_data = get_option_data(ticker, data_ini, database)
     print(len(options_full_data))
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-    v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
-    params['v0']['x0'] = v0
+    # v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
+    # params['v0']['x0'] = v0
 
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
@@ -212,8 +212,8 @@ def calibrate_imp_vol_heston_model(ticker: str, database: str = "2020-09-10", _n
 
     options_full_data = get_option_data(ticker, data_ini, database)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-    v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
-    params['v0']['x0'] = v0
+    # v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
+    # params['v0']['x0'] = v0
 
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
@@ -314,12 +314,11 @@ if __name__ == "__main__":
     # database = '2025-01-30'
     # database = '2020-10-16'
     ticker = "PETR4"
-    for database in ['2020-10-16', '2021-04-05', '2023-11-01', '2025-01-30']:
-    # for database in ['2021-04-05']:
+    for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+    # for database in ['2023-11-01']:
     # for database in ['2025-01-30']:
         validate_black_scholes_model(ticker, database, _ndays=5)
-        measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
+        measure(lambda: calibrate_heston_model(ticker, database, _ndays=7))
         validate_heston_model(ticker, database, _ndays=5)
-        measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
-        validate_kou_model(ticker, database, _ndays=5)
-
+        measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
+        # validate_kou_model(ticker, database, _ndays=5)

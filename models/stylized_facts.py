@@ -216,6 +216,7 @@ def test_smile():
     # database = "2025-01-30"
     database = "2023-11-01"
     # database = "2021-04-05"
+    # database = "2021-04-20"
     # database = "2020-10-16"
     ticker = "PETR4"
     surface_black = vol_surface(ticker, database, 'black')
@@ -224,12 +225,12 @@ def test_smile():
     surface_black = surface_black[surface_black['Maturity'] == maturity].sort_values(by='Strike')
     surface_heston = vol_surface(ticker, database, 'heston')
     surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
-    surface_kou = vol_surface(ticker, database, 'kou')
-    surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
+    # surface_kou = vol_surface(ticker, database, 'kou')
+    # surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
     plt.figure(figsize=(10, 6))
     plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
     plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
-    plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
+    # plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
     plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
     plt.xlabel('Strike Price')
     plt.ylabel('Implied Volatility')
