@@ -3,7 +3,7 @@ from functools import partial
 import numpy as np
 from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
-from utils import diff_days, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic
+from utils import diff_days, ewma_volatility, get_asset_prices, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic
 from black_scholes import black_scholes, black_scholes_vega, implied_vol
 from typing import List, Dict, Callable
 import random
@@ -60,10 +60,8 @@ def listify_model(model: Callable, market_params: List[Dict], optmizing_params_k
         return [model(**params, **named_calibrating_params) for params in market_params]
     return func
 
-def estimate_v0(options_data: pd.DataFrame, data_trade: str, spread_price: float = 0.5, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol = 0.1) -> pd.DataFrame:
-    filtered_data = options_data[options_data['TradeDate'] == data_trade]
-    filtered_data = filtered_data[filtered_data['OscnPctg'] <= spread_price]
-    filtered_data = filtered_data[filtered_data['TradeQty'] >= min_trade_qty]
+def estimate_v0(options_data: pd.DataFrame, data_trade: str, r: float = 0.1, option_type = OptionType.CALL, default_vol = 0.1) -> pd.DataFrame:
+    filtered_data = options_data[options_data['TradeDate'] == data_trade].copy()
     filtered_data['ATM'] = abs(filtered_data['Asset Price']/filtered_data['Strike'] - 1)
 
     # filtered_data = filtered_data.sort_values(by=['ATM', 'Days to Maturity'], ascending=[True, True])
@@ -143,6 +141,12 @@ def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_mat
     # return default_vol if (vol is None or np.isnan(vol)) else vol
     return vol if vol is not np.nan else default_vol
 
+def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
+    data_start = nworkdays(data_base, -1*_ndays)
+    prices_df = get_asset_prices(asset_ticker, data_start, database)
+    ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
+    return ewma_vol.dropna()
+
 def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("heston", database, asset_ticker)
     print(params)
@@ -163,12 +167,19 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
 
 def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
     params = {
-        "v0": {"x0": 0.05, "limits": [1e-3,1]},
-        "kappa": {"x0": 1, "limits": [1e-3,7]},
+        # "v0": {"x0": 0.05, "limits": [1e-3,1]},
+        "kappa": {"x0": 1, "limits": [1e-3,10]},
         "theta": {"x0": 0.1, "limits": [1e-3,1]},
-        "sigma": {"x0": 0.1, "limits": [1e-3,1]},
-        "rho": {"x0": -0.4, "limits": [-1,1]},
+        "sigma": {"x0": 0.1, "limits": [1e-3,2.5]},
+        "rho": {"x0": -0.4, "limits": [-0.95,0.5]},
     }
+
+    def feller_constraint(x):
+        """Retorna valor >= 0 quando a condição é satisfeita."""
+        kappa, theta, sigma = x[1], x[2], x[3]
+        return 2 * kappa * theta - sigma**2 - 0.01
+
+    constraints =  {'type': 'ineq', 'fun': feller_constraint}
 
     data_ini = nworkdays(database, -1*_ndays)
     print('Dates: ', data_ini, database)
@@ -178,41 +189,16 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     options_full_data = get_option_data(ticker, data_ini, database)
     print(len(options_full_data))
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-
-    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
+    v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
+    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': v0 } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
+    
 
-    result = minimize(partial(minimize_prices, heston_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e3 }, bounds=limit_params)
+    result = minimize(partial(minimize_prices, heston_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e3 }, bounds=limit_params, constraints=constraints)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
+    result_params['v0'] = v0
 
     save_params("heston", database, ticker, result_params)
-
-def calibrate_imp_vol_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
-    params = {
-        "v0": {"x0": 0.05, "limits": [1e-3,0.5]},
-        "kappa": {"x0": 1, "limits": [1e-3,7]},
-        "theta": {"x0": 0.1, "limits": [1e-3,0.8]},
-        "sigma": {"x0": 0.1, "limits": [1e-3,0.8]},
-        "rho": {"x0": -0.4, "limits": [-1,1]},
-    }
-
-    data_ini = nworkdays(database, -1*_ndays)
-    print('Dates: ', data_ini, database)
-    initial_params = [param["x0"] for key, param in params.items()]
-    limit_params = [param["limits"] for key, param in params.items()]
-
-    options_full_data = get_option_data(ticker, data_ini, database)
-    r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-
-    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
-    # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
-
-    result = minimize(partial(minimize_imp_vol, heston_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e5 }, bounds=limit_params)
-    result_params = {key: value for key, value in zip(params.keys(), result.x)}
-
-    print("params: ", {**result_params})
-    save_params("heston", database, ticker, result_params)
-
 
 def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("kou", database, asset_ticker)
@@ -256,33 +242,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     # print("params: ", {**result_params})
     save_params("kou", database, asset_ticker, result_params)
 
-def calibrate_imp_vol_kou_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
-    params = {
-        "sigma": {"x0": 0.3, "limits": [1e-2,0.8]},
-        "eta1": {"x0": 10, "limits": [1.01, 50]},
-        "eta2": {"x0": 10, "limits": [1e-2, 50]},
-        "p": {"x0": 0.4, "limits": [1e-2,1]},
-        "lambd": {"x0": 1, "limits": [1e-2,15]},
-    }
-    data_ini = nworkdays(database, -1*_ndays)
-    print('Dates: ', data_ini, database)
-    initial_params = [param["x0"] for key, param in params.items()]
-    limit_params = [param["limits"] for key, param in params.items()]
-
-    options_full_data = get_option_data(ticker, data_ini, database)
-
-    r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
-
-    market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
-    # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
-
-    result = minimize(partial(minimize_imp_vol, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='L-BFGS-B', options={'maxiter': 1e5 }, bounds=limit_params)
-    result_params = {key: value for key, value in zip(params.keys(), result.x)}
-
-    print("params: ", {**result_params})
-    save_params("kou", database, ticker, result_params)
-
-def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
+def validate_black_scholes_model_imp_vol(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
     data_start =  nworkdays(database, 2)
     data_end = nworkdays(data_start, _ndays)
     print('Dates: ', data_start, data_end)
@@ -292,22 +252,42 @@ def validate_black_scholes_model(asset_ticker: str, database: str = "2020-09-10"
     # print('Random params: ', random.sample(params, min(5, len(params))))
     listified_model = listify_model(black_scholes, params, [])
     sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, [])
-    print(f'MSE Black-Scholes on {data_start} to {data_end}: {sqr_err}')
+    print(f'MSE Black-Scholes Imp vol on {data_start} to {data_end}: {sqr_err}')
 
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(black_scholes(**params[i]), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
+
+def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
+    data_start =  nworkdays(database, 2)
+    data_end = nworkdays(data_start, _ndays)
+    print('Dates: ', data_start, data_end)
+    options_full_data = get_option_data(asset_ticker, data_start, data_end)
+    r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
+    sigma_hist = estimate_sigma_hist(asset_ticker, database, _ndays=(_ndays+2)).values.flatten()[-1]
+    params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'sigma': sigma_hist } for _, row in options_full_data.iterrows()]
+
+    listified_model = listify_model(black_scholes, params, [])
+    sqr_err = (1/len(options_full_data)) * squared_error(listified_model, options_full_data['LastPrice'].values, [])
+    print(f'MSE Black-Scholes hist vol on {data_start} to {data_end}: {sqr_err}')
+
+    for i in random.sample(range(len(options_full_data)), 5):
+        print('Estimates price: ', round(black_scholes(**params[i]), 2))
+        print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
+
 
 if __name__ == "__main__":
     database = '2023-11-01'
     # database = '2025-01-30'
     # database = '2020-10-16'
     ticker = "PETR4"
-    # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
-    for database in ['2023-11-01']:
+    for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+    # for database in ['2023-11-01']:
     # for database in ['2025-01-30']:
-        validate_black_scholes_model(ticker, database, _ndays=5)
+        # print(estimate_sigma_hist(ticker, database, _ndays=7))
+        # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
+        # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
         measure(lambda: calibrate_heston_model(ticker, database, _ndays=7))
         validate_heston_model(ticker, database, _ndays=5)
-        measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
-        validate_kou_model(ticker, database, _ndays=5)
+        # # measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
+        # validate_kou_model(ticker, database, _ndays=5)

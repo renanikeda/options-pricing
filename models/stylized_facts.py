@@ -121,7 +121,7 @@ def estimate_vol(asset_ticker: str, trade_date: str, r = 0.1, min_trade_qty: int
     asset_price = prices_df['Asset Price'].values[0]
     
     recent_maturity = filter_recent_maturity(options_df, min_trade_qty, spread_price)
-    vol_surf = vol_surface(asset_ticker, trade_date, r=r, type='black')
+    vol_surf = vol_surface(asset_ticker, trade_date, type='black')
     vol_surf = vol_surf.loc[vol_surf['Maturity'] == recent_maturity.iloc[0]['Maturity']]
     vol_surf['Price Difference'] = abs(vol_surf['Strike'] - asset_price)
     vol_surf = vol_surf.loc[vol_surf['Price Difference'].idxmin()]
@@ -130,8 +130,7 @@ def estimate_vol(asset_ticker: str, trade_date: str, r = 0.1, min_trade_qty: int
     return iv_latest
 
 def get_option_implied_vs_realized_vol(asset_ticker: str, start_date: str, 
-                                      end_date: str, window: int = 30,
-                                      style: OptionStyle = OptionStyle.EURO,
+                                      end_date: str, style: OptionStyle = OptionStyle.EURO,
                                       type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Compare implied volatility from options with realized volatility.
@@ -148,7 +147,7 @@ def get_option_implied_vs_realized_vol(asset_ticker: str, start_date: str,
     pd.DataFrame: DataFrame with implied and realized volatilities
     """
     # Get option data
-    options_df = get_option_data(asset_ticker, start_date, end_date, style, type)
+    options_df = get_option_data(asset_ticker, start_date, end_date, style=style, type=type)
     
     if options_df.empty:
         return pd.DataFrame()
@@ -178,6 +177,18 @@ def get_option_implied_vs_realized_vol(asset_ticker: str, start_date: str,
         realized_vol.loc[trade_date, 'Implied Volatility'] = estimate_vol(asset_ticker, trade_date, option_type=type)
 
     return realized_vol
+
+def plot_asset_prices(asset_ticker: str, database: str, _ndays = 10):
+    data_start = nworkdays(database, -1*_ndays)
+    data_end = nworkdays(database, _ndays)
+    prices_df = get_asset_prices(asset_ticker, data_start, data_end)
+    plt.figure(figsize=(10, 6))
+    plt.plot(prices_df['TradeDate'], prices_df['Asset Price'], color='darkolivegreen')
+    plt.title(f'Asset Prices for {asset_ticker} from {data_start} to {data_end}')
+    plt.xlabel('Date')
+    plt.ylabel('Asset Price')
+    plt.grid()
+    plt.show()
 
 def test_returns():
     S0=100
@@ -214,37 +225,44 @@ def test_returns():
 
 def test_smile():
     # database = "2025-01-30"
-    database = "2023-11-01"
+    # database = "2023-11-01"
     # database = "2021-04-20"
     ticker = "PETR4"
-    surface_black = vol_surface(ticker, database, 'black')
-    # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
-    maturity = surface_black['Maturity'].value_counts().sort_values(ascending=False).index[0]
-    surface_black = surface_black[surface_black['Maturity'] == maturity].sort_values(by='Strike')
-    surface_heston = vol_surface(ticker, database, 'heston')
-    surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
-    surface_kou = vol_surface(ticker, database, 'kou')
-    surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
-    plt.figure(figsize=(10, 6))
-    plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
-    plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
-    plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
-    plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
-    plt.xlabel('Strike Price')
-    plt.ylabel('Implied Volatility')
-    plt.legend()
-    plt.grid()
-    plt.show()
+    for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+        surface_black = vol_surface(ticker, database, 'black')
+        # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
+        maturity = surface_black['Maturity'].value_counts().sort_values(ascending=False).index[0]
+        surface_black = surface_black[surface_black['Maturity'] == maturity].sort_values(by='Strike')
+        surface_heston = vol_surface(ticker, database, 'heston')
+        surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
+        surface_kou = vol_surface(ticker, database, 'kou')
+        surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
+        plt.figure(figsize=(10, 6))
+        plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
+        plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
+        plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
+        plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
+        plt.xlabel('Strike Price')
+        plt.ylabel('Implied Volatility')
+        plt.legend()
+        plt.grid()
+        plt.show()
 
 def test_vol():
     asset_ticker = 'PETR4'
-    start_date = '2025-01-01'
-    end_date = '2025-01-31'
+    start_date = '2021-04-12'
+    end_date = '2021-04-20'
     
-    vol_comparison = get_option_implied_vs_realized_vol(asset_ticker, start_date, end_date, window=15)
+    vol_comparison = get_option_implied_vs_realized_vol(asset_ticker, start_date, end_date)
     print(vol_comparison)
 
+def test_asset_prices():
+    asset_ticker = 'PETR4'
+    for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+        plot_asset_prices(asset_ticker, database, _ndays=30)
+    
 if __name__ == "__main__":
     # test_returns()
-    test_smile()
     # test_vol()
+    test_smile()
+    # test_asset_prices()
