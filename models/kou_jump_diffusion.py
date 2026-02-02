@@ -25,41 +25,6 @@ def poisson_process(lambd: float, tau: float, dt: float, M: int = 1) -> np.ndarr
     jumps = np.random.poisson(lambd * dt, (N + 1, M))
     return jumps
 
-# def generate_matrix_jump_sizes(p: float, eta1: float, eta2: float, jumps: np.ndarray) -> np.ndarray:
-#     """
-#     Sample n independent draws of Y ~ Kou double-exponential (log-jump).
-#     Return array of length n.
-#     Implementation:
-#       - with probability p: Y = +Exp(scale=1/eta1) (positive)
-#       - with probability 1-p: Y = -Exp(scale=1/eta2) (negative)
-    
-#     Parameters:
-#     p (float): probability of positive jump
-#     eta1 (float): parameter for positive jumps
-#     eta2 (float): parameter for negative jumps
-#     jumps (np.ndarray): matrix of jump counts (N x M)
-    
-#     Returns:
-#     np.ndarray: matrix of jump sizes
-#     """
-#     Y = np.empty(jumps.shape, dtype=float)
-#     for n in range(jumps.shape[1]):
-#         u = np.random.rand(jumps.shape[0])
-#         # u = np.random.rand(np.sum(jumps[:, n]))
-#         pos_mask = (u < p)
-#         neg_mask = ~pos_mask
-#         # positive jumps
-#         npos = pos_mask.sum()
-#         if npos > 0:
-#             Y[pos_mask, n] = np.random.exponential(scale=1.0/eta1, size=npos)
-#         # negative jumps
-#         nneg = neg_mask.sum()
-#         if nneg > 0:
-#             Y[neg_mask, n] = -np.random.exponential(scale=1.0/eta2, size=nneg)
-        
-#         Y[:, n] *= jumps[:, n]
-#     return Y
-
 def generate_matrix_jump_sizes(
     p: float,
     eta1: float,
@@ -141,10 +106,8 @@ def kou_process(S0: float, r: float, sigma: float, tau: float, dt: float,
     N = int(tau / dt)
     t = np.linspace(0, tau, N + 1)
     
-    # Generate Brownian motion
     time_matrix = np.repeat(t, M).reshape(N+1, M)
 
-    # Generate Poisson jumps
     poisson_jumps = poisson_process(lambd, tau, dt, M)
     generated_jumps_matrix = generate_matrix_jump_sizes(p, eta1, eta2, poisson_jumps)
 
@@ -185,10 +148,8 @@ def kou_option_price_mc(S0: float, K: float, r: float, sigma: float, tau: float,
 
     payoffs = np.zeros(M)
    
-    # Generate stock price path
 
     _, S_path = kou_process(S0, r, sigma, tau, dt, eta1, eta2, p, lambd, M)
-    # _, S_path = kou_process_steps(S0, mu_risk_neutral, sigma, tau, dt, eta1, eta2, p, lambd, M)
     S_T = S_path[-1, :]  # Final stock price
 
     # Calculate payoff
@@ -199,7 +160,6 @@ def kou_option_price_mc(S0: float, K: float, r: float, sigma: float, tau: float,
     else:
         raise ValueError("option_type must be OptionType.CALL or OptionType.PUT")
     
-    # Discount expected payoff
     option_price = np.exp(-r * tau) * np.mean(payoffs)
     return option_price
 
@@ -320,22 +280,6 @@ def test_poisson_process() -> None:
     plt.ylabel('Number of Jumps')
     plt.grid()
     plt.show()
-
-# def test_jump_pdf() -> None:
-#     """Test the jump size PDF visualization."""
-#     tau = 5
-#     dt = 0.01
-
-#     y, fdp = jumps_pdf(tau, dt, 0.3, 5, 5)
-    
-#     plt.figure(figsize=(10, 6))
-#     plt.plot(y, fdp, 'b-', linewidth=2)
-#     plt.title('Kou Jump Diffusion - Jump Size PDF')
-#     plt.xlabel('Jump Size')
-#     plt.ylabel('Density')
-#     plt.grid(True, alpha=0.3)
-#     plt.axvline(x=0, color='r', linestyle='--', alpha=0.5)
-#     plt.show()
 
 def test_kou_process() -> None:
     """Test the Kou process visualization."""
