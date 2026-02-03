@@ -3,7 +3,7 @@ from functools import partial
 import numpy as np
 from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
-from utils import diff_days, ewma_volatility, get_asset_prices, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic
+from utils import diff_days, estimate_sigma_hist, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic
 from black_scholes import black_scholes, black_scholes_vega, implied_vol
 from typing import List, Dict, Callable
 import random
@@ -141,12 +141,6 @@ def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_mat
     # return default_vol if (vol is None or np.isnan(vol)) else vol
     return vol if vol is not np.nan else default_vol
 
-def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
-    data_start = nworkdays(data_base, -1*_ndays)
-    prices_df = get_asset_prices(asset_ticker, data_start, database)
-    ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
-    return ewma_vol.dropna()
-
 def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     params = load_params("heston", database, asset_ticker)
     print(params)
@@ -220,9 +214,9 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
 
     params = {
         "sigma": {"x0": 0.3, "limits": [1e-2,0.8]},
-        "eta1": {"x0": 10, "limits": [1e-2,50]},
+        "eta1": {"x0": 15, "limits": [1e-2,50]},
         "eta2": {"x0": 10, "limits": [1e-2,50]},
-        "p": {"x0": 0.4, "limits": [1e-2,1]},
+        "p": {"x0": 0.4, "limits": [1e-2,0.7]},
         "lambd": {"x0": 0.5, "limits": [1e-2,15]},
     }
     data_ini = nworkdays(database, -1*_ndays)
@@ -236,7 +230,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))
 
-    result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='SLSQP', options={'maxiter': 1e3 }, bounds=limit_params)
+    result = minimize(partial(minimize_prices, kou_option_price, market_params, params.keys()), initial_params, tol = 1e-4, method='L-BFGS-B', options={'maxiter': 1e3 }, bounds=limit_params)
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     # print("params: ", {**result_params})
@@ -282,12 +276,14 @@ if __name__ == "__main__":
     # database = '2020-10-16'
     ticker = "PETR4"
     for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+    # for database in ['2023-11-01', '2025-01-30']:
+    # for database in ['2021-04-20']:
     # for database in ['2023-11-01']:
     # for database in ['2025-01-30']:
         # print(estimate_sigma_hist(ticker, database, _ndays=7))
         # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
         # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
-        measure(lambda: calibrate_heston_model(ticker, database, _ndays=7))
+        measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
         validate_heston_model(ticker, database, _ndays=5)
-        # # measure(lambda: calibrate_kou_model(ticker, database, _ndays=7))
-        # validate_kou_model(ticker, database, _ndays=5)
+        measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
+        validate_kou_model(ticker, database, _ndays=5)

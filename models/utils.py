@@ -85,7 +85,13 @@ def measure(func):
         print(f"Elapsed time for {func.__name__}: {round((diff)/60, 2)} minutes")
     return res
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.20, min_maturity_dist: float = 30/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
+    data_start = nworkdays(data_base, -1*_ndays)
+    prices_df = get_asset_prices(asset_ticker, data_start, data_base)
+    ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
+    return ewma_vol.dropna()
+
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.7, min_maturity_dist: float = 30/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     

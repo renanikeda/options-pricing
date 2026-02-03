@@ -12,9 +12,9 @@ from black_scholes import implied_vol
 from heston_model import heston_model, heston_price
 from kou_jump_diffusion import kou_option_price, kou_process
 from calibration import estimate_v0
-from utils import OptionType, ewma_volatility, get_option_data, get_asset_prices, get_selic, load_params, nworkdays, OptionStyle
+from utils import OptionType, ewma_volatility, get_option_data, get_asset_prices, get_selic, load_params, nworkdays, estimate_sigma_hist, OptionStyle
 
-def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'black'] = 'black', verbose=False):
+def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'market'] = 'market', verbose=False):
     options_data = get_option_data(ticker, database, database)
     options_data = options_data[options_data['Asset Ticker'] == ticker]
     imp_vols = []
@@ -30,7 +30,7 @@ def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'blac
             params = load_params("kou", database, ticker)
             price = kou_option_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
             if verbose: print(f"Kou price: {price:.2f}, Market price: {row['LastPrice']}")
-        elif type == 'black':
+        elif type == 'market':
             price = row['LastPrice']
             if verbose: print(f"Black-Scholes, Market price: {row['LastPrice']}")
         imp_vol = implied_vol(price, row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
@@ -42,6 +42,7 @@ def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'blac
     vol_surface['Maturity'] = options_data['Maturity']    
     vol_surface['Days to Maturity'] = options_data['Days to Maturity']    
     vol_surface['Implied Volatility'] = imp_vols
+    vol_surface['moneyness'] = options_data['moneyness']
     return vol_surface
 
 def plot_returns(W: np.array, bins: int = 100) -> None:
@@ -229,18 +230,20 @@ def test_smile():
     # database = "2021-04-20"
     ticker = "PETR4"
     for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
-        surface_black = vol_surface(ticker, database, 'black')
+        surface_market = vol_surface(ticker, database, 'market')
         # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
-        maturity = surface_black['Maturity'].value_counts().sort_values(ascending=False).index[0]
-        surface_black = surface_black[surface_black['Maturity'] == maturity].sort_values(by='Strike')
+        maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+        surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
         surface_heston = vol_surface(ticker, database, 'heston')
         surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
         surface_kou = vol_surface(ticker, database, 'kou')
         surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
+        vol_hist = estimate_sigma_hist(ticker, database, _ndays=7).values.flatten()[-1]
         plt.figure(figsize=(10, 6))
-        plt.scatter(surface_black['Strike'], surface_black['Implied Volatility'], color='darkolivegreen', label='Black Implied Volatility', s=10)
+        plt.scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market Implied Volatility', s=10)
         plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
         plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
+        plt.axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Historical Volatility')
         plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
         plt.xlabel('Strike Price')
         plt.ylabel('Implied Volatility')
