@@ -4,7 +4,7 @@ from statsmodels.graphics.gofplots import qqplot
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
+from scipy.stats import norm, skew, kurtosis
 import seaborn as sns
 from typing import Literal
 
@@ -45,15 +45,15 @@ def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'mark
     vol_surface['moneyness'] = options_data['moneyness']
     return vol_surface
 
-def plot_returns(W: np.array, bins: int = 100) -> None:
+def plot_returns(flat_returns: np.array, bins: int = 100) -> None:
     """
     Plot the returns distribution and QQ plot.
     Args:
         W (np.ndarray): Simulated stock prices matrix.
     """
     
-    returns = np.diff(np.log(W), axis=0)
-    flat_returns = returns.flatten()
+    # returns = np.diff(np.log(W), axis=0)
+    # flat_returns = returns.flatten()
 
     print('ploting returns shape:', flat_returns.shape)
     fig = plt.figure(figsize=(10, 7))
@@ -193,41 +193,64 @@ def plot_asset_prices(asset_ticker: str, database: str, _ndays = 10):
 
 def test_returns():
     S0=100
-    tau=0.5
     r=0.1
     sigma=0.5
-    M=1
+    M=100
     dt=0.001
-    database = "2025-01-30"
-    # database = "2020-10-16"
+    ndays = 252
+    daily_steps = int(1/dt)
+    database = "2021-04-20"
+    # database = "2023-11-01"
+    # database = "2025-01-30"
     ticker = 'PETR4'
-
-    # dataend = nworkdays(database, int(252/2))
+    
+    # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
     data_start =  nworkdays(database, 2)
-    data_end = nworkdays(data_start, int(230))
+    data_end = nworkdays(data_start, ndays)
+    # tau = ndays/252
+    
     print(data_start, data_end)
     S = get_asset_prices(ticker, data_start, data_end)
     S = S['Asset Price'].values
+    S = np.diff(np.log(S), axis=0)
+    S = S.flatten()
+    print(f'Curtose Retorno Mercado database {ticker}', round(kurtosis(S, axis=0, bias=False, fisher=False), 2))
+    print(f'Assimetria Retorno Mercado database {ticker}', round(skew(S, axis=0, bias=False), 2))
     plot_returns(S)
 
-    _, W = geometric_brownian_motion(S0=S0, tau=tau, dt=dt, r=r, sigma=sigma, M=M)
+    _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
+    W = W[::daily_steps, :]
+    W = np.diff(np.log(W), axis=0)
+    W = W.flatten()
+    print(f'Curtose Retorno MB database {ticker}', round(kurtosis(W, axis=0, bias=False, fisher=False), 2))
+    print(f'Assimetria Retorno MB database {ticker}', round(skew(W, axis=0, bias=False), 2))
     plot_returns(W)
 
     heston_params = load_params('heston', database, ticker)
     print(heston_params)
-    _, W_h, _ = heston_model(S0=S0, tau=tau, dt=dt, r=r, M=M, **heston_params)
+    _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=r, M=M, **heston_params)
+    W_h = W_h[::daily_steps, :]
+    W_h = np.diff(np.log(W_h), axis=0)
+    W_h = W_h.flatten()
+    print(f'Curtose Retorno Heston database {ticker}', round(kurtosis(W_h, axis=0, bias=False, fisher=False), 2))
+    print(f'Assimetria Retorno Heston database {ticker}', round(skew(W_h, axis=0, bias=False), 2))
     plot_returns(W_h)
 
     kou_params = load_params('kou', database, ticker)
     print(kou_params)
-    t, W_k = kou_process(S0=S0, tau=tau, dt=dt, r=r, M=M, **kou_params)
-    # plot_returns(W_k, bins = int(50 * tau * 20))
+    t, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=r, M=M, **kou_params)
+    W_k = W_k[::daily_steps, :]
+    W_k = np.diff(np.log(W_k), axis=0)
+    W_k = W_k.flatten()
+    # plot_returns(W_k, bins = int(50 * tau * 10))
+    print(f'Curtose Retorno Kou database {ticker}', round(kurtosis(W_k, axis=0, bias=False, fisher=False), 2))
+    print(f'Assimetria Retorno Kou database {ticker}', round(skew(W_k, axis=0, bias=False), 2))
     plot_returns(W_k)
 
 def test_smile():
     # database = "2025-01-30"
     # database = "2023-11-01"
-    # database = "2021-04-20"
+    # database = "2021-04-20"   
     ticker = "PETR4"
     for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
         surface_market = vol_surface(ticker, database, 'market')
@@ -265,7 +288,7 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    # test_returns()
+    test_returns()
     # test_vol()
-    test_smile()
+    # test_smile()
     # test_asset_prices()

@@ -259,6 +259,7 @@ def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "20
     options_full_data = get_option_data(asset_ticker, data_start, data_end)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     sigma_hist = estimate_sigma_hist(asset_ticker, database, _ndays=(_ndays+2)).values.flatten()[-1]
+    print('Estimated historical volatility: ', sigma_hist)
     params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'sigma': sigma_hist } for _, row in options_full_data.iterrows()]
 
     listified_model = listify_model(black_scholes, params, [])
@@ -281,9 +282,9 @@ if __name__ == "__main__":
     # for database in ['2023-11-01']:
     # for database in ['2025-01-30']:
         # print(estimate_sigma_hist(ticker, database, _ndays=7))
-        # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
-        # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
-        measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
+        validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
+        validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
+        # measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
         validate_heston_model(ticker, database, _ndays=5)
-        measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
+        # measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
         validate_kou_model(ticker, database, _ndays=5)
