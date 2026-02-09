@@ -216,7 +216,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
         "sigma": {"x0": 0.3, "limits": [1e-2,0.8]},
         "eta1": {"x0": 15, "limits": [1e-2,50]},
         "eta2": {"x0": 10, "limits": [1e-2,50]},
-        "p": {"x0": 0.4, "limits": [1e-2,0.7]},
+        "p": {"x0": 0.4, "limits": [1e-2,0.6]},
         "lambd": {"x0": 0.5, "limits": [1e-2,15]},
     }
     data_ini = nworkdays(database, -1*_ndays)

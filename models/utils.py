@@ -91,7 +91,7 @@ def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
     ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
     return ewma_vol.dropna()
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.7, min_maturity_dist: float = 30/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.2, min_maturity_dist: float = 30/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     

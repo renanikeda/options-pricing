@@ -221,31 +221,31 @@ def test_returns():
     _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
     W = W[::daily_steps, :]
     W = np.diff(np.log(W), axis=0)
-    W = W.flatten()
-    print(f'Curtose Retorno MB database {ticker}', round(kurtosis(W, axis=0, bias=False, fisher=False), 2))
-    print(f'Assimetria Retorno MB database {ticker}', round(skew(W, axis=0, bias=False), 2))
-    plot_returns(W)
+    # W = W.flatten()
+    print(f'Curtose Retorno MB database {ticker}', np.mean(np.round(kurtosis(W, axis=0, bias=False, fisher=False), 2)))
+    print(f'Assimetria Retorno MB database {ticker}', np.mean(np.round(skew(W, axis=0, bias=False), 2)))
+    plot_returns(W[:,0].flatten())
 
     heston_params = load_params('heston', database, ticker)
     print(heston_params)
     _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=r, M=M, **heston_params)
     W_h = W_h[::daily_steps, :]
     W_h = np.diff(np.log(W_h), axis=0)
-    W_h = W_h.flatten()
-    print(f'Curtose Retorno Heston database {ticker}', round(kurtosis(W_h, axis=0, bias=False, fisher=False), 2))
-    print(f'Assimetria Retorno Heston database {ticker}', round(skew(W_h, axis=0, bias=False), 2))
-    plot_returns(W_h)
+    # W_h = W_h.flatten()
+    print(f'Curtose Retorno Heston database {ticker}', np.mean(np.round(kurtosis(W_h, axis=0, bias=False, fisher=False), 2)))
+    print(f'Assimetria Retorno Heston database {ticker}', np.mean(np.round(skew(W_h, axis=0, bias=False), 2)))
+    plot_returns(W_h[:,0].flatten())
 
     kou_params = load_params('kou', database, ticker)
     print(kou_params)
     t, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=r, M=M, **kou_params)
     W_k = W_k[::daily_steps, :]
     W_k = np.diff(np.log(W_k), axis=0)
-    W_k = W_k.flatten()
+    # W_k = W_k.flatten()
     # plot_returns(W_k, bins = int(50 * tau * 10))
-    print(f'Curtose Retorno Kou database {ticker}', round(kurtosis(W_k, axis=0, bias=False, fisher=False), 2))
-    print(f'Assimetria Retorno Kou database {ticker}', round(skew(W_k, axis=0, bias=False), 2))
-    plot_returns(W_k)
+    print(f'Curtose Retorno Kou database {ticker}', np.mean(np.round(kurtosis(W_k, axis=0, bias=False, fisher=False), 2)))
+    print(f'Assimetria Retorno Kou database {ticker}', np.mean(np.round(skew(W_k, axis=0, bias=False), 2)))
+    plot_returns(W_k[:,0].flatten())
 
 def test_smile():
     # database = "2025-01-30"
@@ -288,7 +288,7 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    test_returns()
+    # test_returns()
     # test_vol()
-    # test_smile()
+    test_smile()
     # test_asset_prices()
