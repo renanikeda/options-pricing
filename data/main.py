@@ -41,8 +41,8 @@ def compress_data():
 
 if __name__ == "__main__":
 
-  date_ini = '2019-01-01'
-  date_end = '2020-01-01'
+  date_ini = '2026-01-01'
+  date_end = '2026-03-20'
   # database = '20200901'
   output = 'Histórico B3'
 
@@ -55,5 +55,9 @@ if __name__ == "__main__":
   for database in databases:
     sleep(0.15)  # To avoid overloading the server with requests
     result = get_options_treated(database)
-    if not result.empty:  result.to_csv(f'{output}/Negociações {database}.csv', index=False)
+    if not result.empty:
+        print(f'Saving in {output}/Negociações {database}.csv')
+        result.to_csv(f'{output}/Negociações {database}.csv', index=False)
+    else:
+        print("Empty result")
   compress_data()
