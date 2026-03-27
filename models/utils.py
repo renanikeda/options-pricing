@@ -91,7 +91,7 @@ def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
     ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
     return ewma_vol.dropna()
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.2, min_maturity_dist: float = 30/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.20, min_maturity_dist: float = 30/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     
@@ -163,17 +163,17 @@ def days_to_maturity(trade_date: List[str], maturity_date: List[str]):
     maturity_dates = [datetime.strptime(date, date_format) for date in maturity_date]
     return np.array([(maturity - trade).days / 365 for trade, maturity in zip(trade_dates, maturity_dates)])
 
-def load_params(model: str, database: str, ticker: str) -> Dict:
-    if not os.path.exists("calibrated_params.json"):
+def load_params(model: str, database: str, ticker: str, params_file = 'calibrated_params.json') -> Dict:
+    if not os.path.exists(params_file):
         return {}
-    with open("calibrated_params.json", "r") as f:
+    with open(params_file, "r") as f:
         all_params = json.load(f)
         return all_params.get(model, {}).get(database, {}).get(ticker, {})
     
-def save_params(model: str, database: str, ticker: str, params: Dict):
+def save_params(model: str, database: str, ticker: str, params: Dict, params_file = 'calibrated_params.json'):
     existed_params = {}
-    if os.path.exists("calibrated_params.json"):
-        with open("calibrated_params.json", "r") as f:
+    if os.path.exists(params_file):
+        with open(params_file, "r") as f:
             existed_params = json.load(f)
     if model not in existed_params:
         existed_params[model] = {}
@@ -183,7 +183,7 @@ def save_params(model: str, database: str, ticker: str, params: Dict):
 
     existed_params[model][database][ticker] = params
 
-    with open("calibrated_params.json", "w") as f:
+    with open(params_file, "w") as f:
         json.dump(existed_params, f, indent=2)    
 
 def ewma_volatility(prices: pd.Series, window: int = None, span: int = None, 

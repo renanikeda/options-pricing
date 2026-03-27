@@ -4,7 +4,7 @@ from statsmodels.graphics.gofplots import qqplot
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import norm, skew, kurtosis
+from scipy.stats import norm, skew, kurtosis, shapiro
 import seaborn as sns
 from typing import Literal
 
@@ -13,37 +13,7 @@ from heston_model import heston_model, heston_price
 from kou_jump_diffusion import kou_option_price, kou_process
 from calibration import estimate_v0
 from utils import OptionType, ewma_volatility, get_option_data, get_asset_prices, get_selic, load_params, nworkdays, estimate_sigma_hist, OptionStyle
-
-def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'market'] = 'market', verbose=False):
-    options_data = get_option_data(ticker, database, database)
-    options_data = options_data[options_data['Asset Ticker'] == ticker]
-    imp_vols = []
-    r = get_selic(options_data.iloc[0]['TradeDate']) / 100
-    for (_, row) in options_data.iterrows():
-        if type == 'heston':
-            params = load_params("heston", database, ticker)
-            if 'v0' not in params:
-                params['v0'] = estimate_v0(options_data, row['TradeDate'], r=r)
-            price = heston_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
-            if verbose: print(f"Heston price: {price:.2f}, Market price: {row['LastPrice']}")
-        elif type == 'kou':
-            params = load_params("kou", database, ticker)
-            price = kou_option_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
-            if verbose: print(f"Kou price: {price:.2f}, Market price: {row['LastPrice']}")
-        elif type == 'market':
-            price = row['LastPrice']
-            if verbose: print(f"Black-Scholes, Market price: {row['LastPrice']}")
-        imp_vol = implied_vol(price, row['Asset Price'], row['Strike'], row['Days to Maturity'], r=r, option_type=OptionType.CALL if row.Type == "CALL" else OptionType.PUT)
-        imp_vols.append(imp_vol)
-    vol_surface = pd.DataFrame()
-    vol_surface['Strike'] = options_data['Strike']
-    # vol_surface['LastPrice'] = options_data['LastPrice']
-    # vol_surface['Asset Price'] = options_data['Asset Price']
-    vol_surface['Maturity'] = options_data['Maturity']    
-    vol_surface['Days to Maturity'] = options_data['Days to Maturity']    
-    vol_surface['Implied Volatility'] = imp_vols
-    vol_surface['moneyness'] = options_data['moneyness']
-    return vol_surface
+from imp_vol import vol_surface
 
 def plot_returns(flat_returns: np.array, bins: int = 100) -> None:
     """
@@ -199,9 +169,9 @@ def test_returns():
     dt=0.001
     ndays = 252
     daily_steps = int(1/dt)
-    database = "2021-04-20"
-    # database = "2023-11-01"
-    # database = "2025-01-30"
+    database = '2020-07-13'
+    # database = '2022-04-18'
+    # database = '2025-06-10'
     ticker = 'PETR4'
     
     # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
@@ -216,6 +186,8 @@ def test_returns():
     S = S.flatten()
     print(f'Curtose Retorno Mercado database {ticker}', round(kurtosis(S, axis=0, bias=False, fisher=False), 2))
     print(f'Assimetria Retorno Mercado database {ticker}', round(skew(S, axis=0, bias=False), 2))
+    stat, p = shapiro(S)
+    print(f'Shapiro-Wilk Mercado database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     plot_returns(S)
 
     _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
@@ -224,6 +196,8 @@ def test_returns():
     # W = W.flatten()
     print(f'Curtose Retorno MB database {ticker}', np.mean(np.round(kurtosis(W, axis=0, bias=False, fisher=False), 2)))
     print(f'Assimetria Retorno MB database {ticker}', np.mean(np.round(skew(W, axis=0, bias=False), 2)))
+    stat, p = shapiro(W[:,0].flatten())
+    print(f'Shapiro-Wilk MB (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     plot_returns(W[:,0].flatten())
 
     heston_params = load_params('heston', database, ticker)
@@ -234,6 +208,8 @@ def test_returns():
     # W_h = W_h.flatten()
     print(f'Curtose Retorno Heston database {ticker}', np.mean(np.round(kurtosis(W_h, axis=0, bias=False, fisher=False), 2)))
     print(f'Assimetria Retorno Heston database {ticker}', np.mean(np.round(skew(W_h, axis=0, bias=False), 2)))
+    stat, p = shapiro(W_h[:,0].flatten())
+    print(f'Shapiro-Wilk Heston (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     plot_returns(W_h[:,0].flatten())
 
     kou_params = load_params('kou', database, ticker)
@@ -245,14 +221,40 @@ def test_returns():
     # plot_returns(W_k, bins = int(50 * tau * 10))
     print(f'Curtose Retorno Kou database {ticker}', np.mean(np.round(kurtosis(W_k, axis=0, bias=False, fisher=False), 2)))
     print(f'Assimetria Retorno Kou database {ticker}', np.mean(np.round(skew(W_k, axis=0, bias=False), 2)))
+    stat, p = shapiro(W_k[:,0].flatten())
+    print(f'Shapiro-Wilk Kou (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     plot_returns(W_k[:,0].flatten())
+
+def check_smile():
+    # database = "2025-01-30"
+    # database = "2023-11-01"
+    # database = "2021-04-20"   
+    ticker = "PETR4"
+    # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+    # database = '2022-04-18'
+    database = '2025-06-10'
+    surface_market = vol_surface(ticker, database, 'market')
+    # print(surface_market)
+    maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+    surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
+    vol_hist = estimate_sigma_hist(ticker, database, _ndays=7).values.flatten()[-1]
+    plt.figure(figsize=(10, 6))
+    plt.scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market Implied Volatility', s=10)
+    plt.axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Historical Volatility')
+    plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
+    plt.xlabel('Strike Price')
+    plt.ylabel('Implied Volatility')
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 def test_smile():
     # database = "2025-01-30"
     # database = "2023-11-01"
     # database = "2021-04-20"   
     ticker = "PETR4"
-    for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+    # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+    for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
         surface_market = vol_surface(ticker, database, 'market')
         # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
         maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
@@ -288,7 +290,8 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    # test_returns()
+    test_returns()
     # test_vol()
-    test_smile()
+    # test_smile()
+    # check_smile()
     # test_asset_prices()

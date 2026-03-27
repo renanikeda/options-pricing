@@ -1,3 +1,4 @@
+from imp_vol import vol_surface, estimate_v0
 from scipy.optimize import minimize
 from functools import partial
 import numpy as np
@@ -5,7 +6,7 @@ from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
 from utils import diff_days, estimate_sigma_hist, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic
 from black_scholes import black_scholes, black_scholes_vega, implied_vol
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable, Literal
 import random
 import pandas as pd
 
@@ -60,19 +61,6 @@ def listify_model(model: Callable, market_params: List[Dict], optmizing_params_k
         return [model(**params, **named_calibrating_params) for params in market_params]
     return func
 
-def estimate_v0(options_data: pd.DataFrame, data_trade: str, r: float = 0.1, option_type = OptionType.CALL, default_vol = 0.1) -> pd.DataFrame:
-    filtered_data = options_data[options_data['TradeDate'] == data_trade].copy()
-    filtered_data['ATM'] = abs(filtered_data['Asset Price']/filtered_data['Strike'] - 1)
-
-    # filtered_data = filtered_data.sort_values(by=['ATM', 'Days to Maturity'], ascending=[True, True])
-    filtered_data = filtered_data.sort_values(by=['Days to Maturity', 'ATM'], ascending=[True, True])
-    if filtered_data.empty:
-        raise ValueError("No options meet the filtering criteria.")
-    
-    filtered_data = filtered_data.iloc[0]
-    vol = implied_vol(filtered_data['LastPrice'], filtered_data['Asset Price'], filtered_data['Strike'], filtered_data['Days to Maturity'], r=r, option_type=option_type)
-    vol = default_vol if vol is np.nan else vol
-    return vol ** 2
 
 def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_maturity: str, spread_price: float = 0.5, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol: float = 0.1) -> float:
     """
@@ -141,8 +129,8 @@ def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_mat
     # return default_vol if (vol is None or np.isnan(vol)) else vol
     return vol if vol is not np.nan else default_vol
 
-def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
-    params = load_params("heston", database, asset_ticker)
+def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5, params_file: str = 'calibrated_params.csv'):
+    params = load_params("heston", database, asset_ticker, params_file)
     print(params)
     data_start =  nworkdays(database, 2)
     data_end = nworkdays(data_start, _ndays)
@@ -158,6 +146,7 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5):
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(heston_price(**market_params[i], **params ), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
+    return sqr_err
 
 def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
     params = {
@@ -194,8 +183,8 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
 
     save_params("heston", database, ticker, result_params)
 
-def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
-    params = load_params("kou", database, asset_ticker)
+def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5, params_file: str = 'calibrated_params.csv'):
+    params = load_params("kou", database, asset_ticker, params_file)
     print(params)
     database =  nworkdays(database, 2)
     data_end = nworkdays(database, _ndays)
@@ -209,6 +198,23 @@ def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5):
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(kou_option_price(**market_params[i], **params), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
+    return sqr_err
+
+def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['heston', 'kou'] = 'kou', params_file: str = 'calibrated_params.csv'):
+
+    surface_market = vol_surface(asset_ticker, database, 'market')
+    maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+    surface_model = vol_surface(asset_ticker, database, model)
+    surface_model = surface_model[surface_model['Maturity'] == maturity].sort_values(by='Strike')
+    surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
+
+    # print(surface_market)
+    # print(surface_model)
+    vol_imp_market = surface_market['Implied Volatility'].values
+    vol_imp_model = surface_model['Implied Volatility'].values
+    sqr_err = (1/len(surface_model)) * np.sum((vol_imp_market - vol_imp_model) ** 2)
+    print(f'MSE {model.capitalize()} model {model} implied vol on {database}: {sqr_err}')
+    return sqr_err
 
 def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
 
@@ -251,6 +257,7 @@ def validate_black_scholes_model_imp_vol(asset_ticker: str, database: str = "202
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(black_scholes(**params[i]), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
+    return sqr_err
 
 def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
     data_start =  nworkdays(database, 2)
@@ -269,22 +276,53 @@ def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "20
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(black_scholes(**params[i]), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
+    return sqr_err
 
+def results_to_csv():
+    results = []
+    for ticker in ['PETR4', 'VALE3']:
+        for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+            for params_file in ['calibrated_params 15%.csv', 'calibrated_params 20%.csv', 'calibrated_params 50%.csv', 'calibrated_params 60%.csv']:
+                _ndays=5
+                sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, params_file=params_file) 
+                sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, params_file=params_file)
+                sqr_bs_hist_vol = validate_black_scholes_model_hist_vol(ticker, database, _ndays=_ndays)
+                sqr_bs_imp_vol = validate_black_scholes_model_imp_vol(ticker, database, _ndays=_ndays)
+                sqr_model_heston_imp_vol = validate_model_imp_vol(ticker, database, model='heston', params_file=params_file)
+                sqr_model_kou_imp_vol = validate_model_imp_vol(ticker, database, model='kou', params_file=params_file)
+                results.append({
+                    'ticker': ticker,
+                    'database': database,
+                    'sqr_bs_hist_vol': sqr_bs_hist_vol,
+                    'sqr_bs_imp_vol': sqr_bs_imp_vol,
+                    'sqr_model_heston': sqr_model_heston,
+                    'sqr_model_kou': sqr_model_kou,
+                    'sqr_model_heston_imp_vol': sqr_model_heston_imp_vol,
+                    'sqr_model_kou_imp_vol': sqr_model_kou_imp_vol,
+                    'moneyness': params_file.split('.')[0].replace('calibrated_params', ''),
+                })
+    df_results = pd.DataFrame(results)
+    df_results.to_csv('model_validation_results.csv', index=False)
+            
 
 if __name__ == "__main__":
     database = '2023-11-01'
     # database = '2025-01-30'
     # database = '2020-10-16'
-    ticker = "PETR4"
-    for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
-    # for database in ['2023-11-01', '2025-01-30']:
-    # for database in ['2021-04-20']:
-    # for database in ['2023-11-01']:
-    # for database in ['2025-01-30']:
+    # ticker = "PETR4"
+    ticker = "VALE3"
+    # raise Exception
+
+    
+    for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+    # for database in [ '2025-06-10']:
         # print(estimate_sigma_hist(ticker, database, _ndays=7))
-        validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
-        validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
-        # measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
-        validate_heston_model(ticker, database, _ndays=5)
-        # measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
-        validate_kou_model(ticker, database, _ndays=5)
+        # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
+        # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
+        measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
+        # validate_heston_model(ticker, database, _ndays=5)
+        measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
+        # validate_kou_model(ticker, database, _ndays=5)
+    
+        # validate_model_imp_vol(ticker, '2020-07-13', model='kou')
+        # validate_model_imp_vol(ticker, '2020-07-13', model='heston')
