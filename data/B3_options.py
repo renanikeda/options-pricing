@@ -207,7 +207,7 @@ def merge_all_deals(root_path: str, output_path: str, ticker_regex:str = ''):
 
 def get_b3_info(database: str, output: str = '.', type: Literal['negotiation', 'product'] = 'negotiation', retries = 0):
     try:
-        interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
+        interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA.*']
         ticker_regex = '|'.join(interested_tickers)
         prefix = 'PR' if type == 'negotiation' else 'IN'
         code = prefix + database[2:]

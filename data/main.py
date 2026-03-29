@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from time import sleep
 
 
-interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA11.*']
+interested_tickers = [r'IBOV.*', r'PETR.*', r'VALE.*', r'BOVA.*']
 
 def gen_date_list(ini_date: str, end_date: str):
     """
@@ -41,8 +41,8 @@ def compress_data():
 
 if __name__ == "__main__":
 
-  date_ini = '2026-01-01'
-  date_end = '2026-03-20'
+  date_ini = '2025-06-01'
+  date_end = '2025-06-3'
   # database = '20200901'
   output = 'Histórico B3'
 

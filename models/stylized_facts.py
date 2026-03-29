@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm, skew, kurtosis, shapiro
 import seaborn as sns
-from typing import Literal
+from typing import List, Literal
 
 from black_scholes import implied_vol
 from heston_model import heston_model, heston_price
@@ -34,8 +34,8 @@ def plot_returns(flat_returns: np.array, bins: int = 100) -> None:
     xmin, xmax = plt.xlim()
     x = np.linspace(xmin, xmax, bins*2)
     p = norm.pdf(x, np.mean(flat_returns), np.std(flat_returns))
-    plt.plot(x, p, color='r', linestyle='dashed', linewidth=3, label='Gaussian')
-    plt.xlabel(f'GBM retorno diário')
+    plt.plot(x, p, color='r', linestyle='dashed', linewidth=3, label='Dist. Normal')
+    plt.xlabel(f'Retorno diário')
     plt.ylabel('Frequência')
     plt.grid(linewidth=0.3)
     plt.legend()
@@ -47,6 +47,48 @@ def plot_returns(flat_returns: np.array, bins: int = 100) -> None:
     plt.xlim([-4.5,4.5])
     plt.grid(linewidth=0.3)
     plt.tight_layout()
+    plt.show()
+
+def plot_n_returns(n_flat_returns: List[np.array], titles: List[str], size: int, bins: int = 100) -> None:
+    """
+    Plot the returns distribution and QQ plot for multiple sets of returns.
+    Args:
+        n_flat_returns (List[np.array]): List of flattened returns arrays.
+        titles (List[str]): List of titles for each plot.
+        size (int): Number of return sets to plot.
+        bins (int): Number of bins for the histogram.
+    """
+    
+    # returns = np.diff(np.log(W), axis=0)
+    # flat_returns = returns.flatten()
+
+    print('ploting returns shape:', [n_flat_returns[i].shape for i in range(size)])
+    fig = plt.figure(figsize=(14, 7))
+    for n in range(1, size+1):
+        flat_returns = n_flat_returns[n-1]
+        # print(int(f'2{size}{n}'), int(f'2{size}{n+size}'))
+        ax = fig.add_subplot(int(f'2{size}{n}'))
+
+        xlim = np.std(flat_returns) * 4
+        ax.set_xlim([-xlim, xlim])
+        sns.histplot(flat_returns, bins=bins, color='darkolivegreen', stat='density', ax=ax)
+        xmin, xmax = plt.xlim()
+        x = np.linspace(xmin, xmax, bins*2)
+        p = norm.pdf(x, np.mean(flat_returns), np.std(flat_returns))
+        plt.plot(x, p, color='r', linestyle='dashed', linewidth=3, label='Dist. Normal')
+        plt.xlabel(f'Retorno diário')
+        plt.ylabel('Frequência')
+        plt.grid(linewidth=0.3)
+        plt.legend()
+        plt.title(titles[n-1])
+
+        ax = fig.add_subplot(int(f'2{size}{n+size}'))
+        qqplot(flat_returns, line='s', ax=ax, markerfacecolor='darkolivegreen', fit=True)
+        plt.xlabel('Quantil Teórico')
+        plt.ylabel('Quantil Amostral')
+        plt.xlim([-4.5,4.5])
+        plt.grid(linewidth=0.3)
+        plt.tight_layout()
     plt.show()
 
 def filter_recent_maturity(options_df: pd.DataFrame, min_trade_qty=5, spread_price=0.75) -> pd.Timestamp:
@@ -188,7 +230,7 @@ def test_returns():
     print(f'Assimetria Retorno Mercado database {ticker}', round(skew(S, axis=0, bias=False), 2))
     stat, p = shapiro(S)
     print(f'Shapiro-Wilk Mercado database {ticker}: Stat={stat:.4f}, p={p:.4e}')
-    plot_returns(S)
+    # plot_returns(S)
 
     _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
     W = W[::daily_steps, :]
@@ -198,7 +240,9 @@ def test_returns():
     print(f'Assimetria Retorno MB database {ticker}', np.mean(np.round(skew(W, axis=0, bias=False), 2)))
     stat, p = shapiro(W[:,0].flatten())
     print(f'Shapiro-Wilk MB (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
-    plot_returns(W[:,0].flatten())
+    # plot_returns(W[:,0].flatten())
+
+    plot_n_returns([S, W[:,0].flatten()], ['Retorno Mercado', 'Retorno MBG'], size=2)
 
     heston_params = load_params('heston', database, ticker)
     print(heston_params)
@@ -210,7 +254,7 @@ def test_returns():
     print(f'Assimetria Retorno Heston database {ticker}', np.mean(np.round(skew(W_h, axis=0, bias=False), 2)))
     stat, p = shapiro(W_h[:,0].flatten())
     print(f'Shapiro-Wilk Heston (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
-    plot_returns(W_h[:,0].flatten())
+    # plot_returns(W_h[:,0].flatten())
 
     kou_params = load_params('kou', database, ticker)
     print(kou_params)
@@ -223,7 +267,8 @@ def test_returns():
     print(f'Assimetria Retorno Kou database {ticker}', np.mean(np.round(skew(W_k, axis=0, bias=False), 2)))
     stat, p = shapiro(W_k[:,0].flatten())
     print(f'Shapiro-Wilk Kou (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
-    plot_returns(W_k[:,0].flatten())
+    # plot_returns(W_k[:,0].flatten())
+    plot_n_returns([W_h[:,0].flatten(), W_k[:,0].flatten()], ['Retorno Heston', 'Retorno Kou'], size=2)
 
 def check_smile():
     # database = "2025-01-30"
@@ -252,29 +297,32 @@ def test_smile():
     # database = "2025-01-30"
     # database = "2023-11-01"
     # database = "2021-04-20"   
-    ticker = "PETR4"
+    ticker = "VALE3"
+    moneyness_divergence = 0.15
     # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
     for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-        surface_market = vol_surface(ticker, database, 'market')
-        # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
-        maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
-        surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
-        surface_heston = vol_surface(ticker, database, 'heston')
-        surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
-        surface_kou = vol_surface(ticker, database, 'kou')
-        surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
-        vol_hist = estimate_sigma_hist(ticker, database, _ndays=7).values.flatten()[-1]
-        plt.figure(figsize=(10, 6))
-        plt.scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market Implied Volatility', s=10)
-        plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
-        plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
-        plt.axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Historical Volatility')
-        plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
-        plt.xlabel('Strike Price')
-        plt.ylabel('Implied Volatility')
-        plt.legend()
-        plt.grid()
-        plt.show()
+        for moneyness_divergence in [0.15, 0.2, 0.5, 0.6]:
+            print(f"Database: {database}, Moneyness Divergence: {moneyness_divergence}")
+            surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_divergence)
+            # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
+            maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+            surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
+            surface_heston = vol_surface(ticker, database, 'heston', moneyness_divergence=moneyness_divergence)
+            surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
+            surface_kou = vol_surface(ticker, database, 'kou', moneyness_divergence=moneyness_divergence)
+            surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
+            vol_hist = estimate_sigma_hist(ticker, database, _ndays=7).values.flatten()[-1]
+            plt.figure(figsize=(10, 6))
+            plt.scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market Implied Volatility', s=10)
+            plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
+            plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
+            plt.axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Historical Volatility')
+            plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
+            plt.xlabel('Strike Price')
+            plt.ylabel('Implied Volatility')
+            plt.legend()
+            plt.grid()
+            plt.show()
 
 def test_vol():
     asset_ticker = 'PETR4'

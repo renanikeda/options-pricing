@@ -285,12 +285,12 @@ def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "20
 
 def results_to_csv():
     results = []
-    for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-    # for database in ['2020-07-13', '2022-04-18']:
-        for moneyness_spread in [0.15, 0.2, 0.5, 0.6]:
-        # for moneyness_spread in [0.15, 0.6]:
-            for ticker in ['PETR4', 'VALE3']:
-            # for ticker in ['VALE3']:
+    for ticker in ['PETR4', 'VALE3']:
+    # for ticker in ['VALE3']:
+        for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+        # for database in ['2020-07-13', '2022-04-18']:
+            for moneyness_spread in [0.15, 0.2, 0.5, 0.6]:
+            # for moneyness_spread in [0.15, 0.6]:
                 _ndays=5
                 sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread) 
                 sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
@@ -319,13 +319,15 @@ if __name__ == "__main__":
     # database = '2020-10-16'
     # ticker = "PETR4"
     # ticker = "VALE3"
-    results_to_csv()
-    raise Exception
+    # results_to_csv()
+    # raise Exception
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
     for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-        for moneyness_spread in [0.15, 0.2, 0.5, 0.6]:
-            for ticker in ['PETR4', 'VALE3']:
+        # for moneyness_spread in [0.15, 0.2, 0.5, 0.6]:
+        for moneyness_spread in [0.7]:
+            for ticker in ['PETR4', 'VALE3', 'BOVA11']:
+            # for ticker in ['BOVA11']:
                 # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
                 # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
                 measure(lambda: calibrate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
