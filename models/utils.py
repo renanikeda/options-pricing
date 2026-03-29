@@ -91,7 +91,7 @@ def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
     ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
     return ewma_vol.dropna()
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.20, min_maturity_dist: float = 30/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.60, min_maturity_dist: float = 15/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     
@@ -123,8 +123,10 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_pr
     full_prices = full_prices[full_prices['Type'] == type_value]
     full_prices = full_prices[full_prices['Style'] == style.value]
     full_prices = full_prices[full_prices['OscnPctg'] <= spread_price*100]
+    # print(full_prices.sort_values(by=['Days to Maturity'], ascending=True))
     full_prices = full_prices[full_prices['Days to Maturity'] >= min_maturity_dist]
     full_prices['moneyness'] = full_prices['Asset Price'] / full_prices['Strike']
+    # print(full_prices.sort_values(by=['moneyness'], ascending=False))
     full_prices = full_prices[(full_prices['moneyness'] >= (1 - moneyness_divergence)) & 
                               (full_prices['moneyness'] <= (1 + moneyness_divergence))]
     return full_prices

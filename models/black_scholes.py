@@ -144,9 +144,9 @@ def implied_vol_newton_raphson(price_mkt: float, S0: float, K: float, tau: float
     raise RuntimeError(f"Newton-Raphson did not converge after {max_iter} iterations. Last sigma: {sigma:.6f}")
 
 def implied_vol_bissection(price_mkt: float, S0: float, K: float, tau: float, 
-                          r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 5, 
+                          r: float = 0.1, vol_low: float = 1e-8, vol_high: float = 7, 
                           option_type: OptionType = OptionType.CALL, 
-                          tol: float = 1e-6, max_iter: int = 100) -> float:
+                          tol: float = 1e-6, max_iter: int = 200) -> float:
     """
     Calculate the implied volatility using the bisection method.
     

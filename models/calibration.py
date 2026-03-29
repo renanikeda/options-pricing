@@ -62,7 +62,7 @@ def listify_model(model: Callable, market_params: List[Dict], optmizing_params_k
     return func
 
 
-def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_maturity: str, spread_price: float = 0.5, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol: float = 0.1) -> float:
+def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_maturity: str, spread_price: float = 0.75, min_trade_qty: int = 10, r: float = 0.1, option_type = OptionType.CALL, default_vol: float = 0.1) -> float:
     """
     Estimate implied volatility for a given strike and maturity by finding the closest match in the dataset.
     
@@ -83,7 +83,7 @@ def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_mat
     # Filter by trade date and quality criteria
     options_data_base = get_option_data(asset_ticker, data_base, data_base)
     filtered_data = options_data_base[options_data_base['TradeDate'] == data_base]
-    filtered_data = filtered_data[filtered_data['OscnPctg'] <= spread_price]
+    filtered_data = filtered_data[filtered_data['OscnPctg'] <= spread_price*100]
     filtered_data = filtered_data[filtered_data['TradeQty'] >= min_trade_qty]
     
     if filtered_data.empty:
@@ -129,12 +129,12 @@ def estimate_sigma(asset_ticker: str, data_base: str, new_strike: float, new_mat
     # return default_vol if (vol is None or np.isnan(vol)) else vol
     return vol if vol is not np.nan else default_vol
 
-def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5, params_file: str = 'calibrated_params.csv'):
-    params = load_params("heston", database, asset_ticker, params_file)
+def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5, moneyness_spread: float = 0.15):
+    params = load_params("heston", database, asset_ticker, params_file=f'calibrated_params {moneyness_spread*100}%.json')
     print(params)
     data_start =  nworkdays(database, 2)
     data_end = nworkdays(data_start, _ndays)
-    options_full_data = get_option_data(asset_ticker, data_start, data_end)
+    options_full_data = get_option_data(asset_ticker, data_start, data_end, moneyness_divergence=moneyness_spread)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
 
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
@@ -146,9 +146,9 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5, par
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(heston_price(**market_params[i], **params ), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
-    return sqr_err
+    return round(sqr_err, 8)
 
-def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5):
+def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5, moneyness_spread: float = 0.15):
     params = {
         # "v0": {"x0": 0.05, "limits": [1e-3,1]},
         "kappa": {"x0": 1, "limits": [1e-3,10]},
@@ -169,7 +169,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
 
-    options_full_data = get_option_data(ticker, data_ini, database)
+    options_full_data = get_option_data(ticker, data_ini, database, moneyness_divergence=moneyness_spread)
     print(len(options_full_data))
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
@@ -181,14 +181,14 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
     result_params['v0'] = v0
 
-    save_params("heston", database, ticker, result_params)
+    save_params("heston", database, ticker, result_params, params_file=f'calibrated_params {moneyness_spread*100}%.json')
 
-def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5, params_file: str = 'calibrated_params.csv'):
-    params = load_params("kou", database, asset_ticker, params_file)
+def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5, moneyness_spread: float = 0.15):
+    params = load_params("kou", database, asset_ticker, params_file=f'calibrated_params {moneyness_spread*100}%.json')
     print(params)
     database =  nworkdays(database, 2)
     data_end = nworkdays(database, _ndays)
-    options_full_data = get_option_data(asset_ticker, database, data_end)
+    options_full_data = get_option_data(asset_ticker, database, data_end, moneyness_divergence=moneyness_spread)
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     market_params = [{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     listified_model = listify_model(kou_option_price, market_params, list(params.keys()))
@@ -198,25 +198,30 @@ def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5, params
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(kou_option_price(**market_params[i], **params), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
-    return sqr_err
+    return round(sqr_err, 8)
 
-def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['heston', 'kou'] = 'kou', params_file: str = 'calibrated_params.csv'):
 
-    surface_market = vol_surface(asset_ticker, database, 'market')
+def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['heston', 'kou'] = 'kou', moneyness_spread: float = 0.15):
+
+    surface_market = vol_surface(asset_ticker, database, 'market', moneyness_divergence=moneyness_spread)
     maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
-    surface_model = vol_surface(asset_ticker, database, model)
+    surface_model = vol_surface(asset_ticker, database, model, moneyness_divergence=moneyness_spread)
     surface_model = surface_model[surface_model['Maturity'] == maturity].sort_values(by='Strike')
     surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
-
-    # print(surface_market)
-    # print(surface_model)
+    
     vol_imp_market = surface_market['Implied Volatility'].values
     vol_imp_model = surface_model['Implied Volatility'].values
-    sqr_err = (1/len(surface_model)) * np.sum((vol_imp_market - vol_imp_model) ** 2)
-    print(f'MSE {model.capitalize()} model {model} implied vol on {database}: {sqr_err}')
-    return sqr_err
 
-def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
+    #Mask filtering nan
+    valid_mask = ~np.isnan(vol_imp_market)
+    vol_imp_market = vol_imp_market[valid_mask]
+    vol_imp_model = vol_imp_model[valid_mask]
+    
+    sqr_err = (1/len(vol_imp_market)) * np.sum((vol_imp_market - vol_imp_model) ** 2)
+    print(f'MSE {model.capitalize()} model {model} implied vol on {database}: {sqr_err}')
+    return round(sqr_err, 8)
+
+def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5, moneyness_spread: float = 0.15):
 
     params = {
         "sigma": {"x0": 0.3, "limits": [1e-2,0.8]},
@@ -230,7 +235,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
 
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
-    options_full_data = get_option_data(asset_ticker, data_ini, database)
+    options_full_data = get_option_data(asset_ticker, data_ini, database, moneyness_divergence=moneyness_spread)
     print(len(options_full_data))
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
@@ -240,7 +245,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     result_params = {key: value for key, value in zip(params.keys(), result.x)}
 
     # print("params: ", {**result_params})
-    save_params("kou", database, asset_ticker, result_params)
+    save_params("kou", database, asset_ticker, result_params, params_file=f'calibrated_params {moneyness_spread*100}%.json')
 
 def validate_black_scholes_model_imp_vol(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
     data_start =  nworkdays(database, 2)
@@ -257,7 +262,7 @@ def validate_black_scholes_model_imp_vol(asset_ticker: str, database: str = "202
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(black_scholes(**params[i]), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
-    return sqr_err
+    return round(sqr_err, 8)
 
 def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "2020-09-10", _ndays = 5):
     data_start =  nworkdays(database, 2)
@@ -276,20 +281,23 @@ def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "20
     for i in random.sample(range(len(options_full_data)), 5):
         print('Estimates price: ', round(black_scholes(**params[i]), 2))
         print('Real price: ', round(options_full_data['LastPrice'].iloc[i], 2))
-    return sqr_err
+    return round(sqr_err, 8)
 
 def results_to_csv():
     results = []
-    for ticker in ['PETR4', 'VALE3']:
-        for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-            for params_file in ['calibrated_params 15%.csv', 'calibrated_params 20%.csv', 'calibrated_params 50%.csv', 'calibrated_params 60%.csv']:
+    for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+    # for database in ['2020-07-13', '2022-04-18']:
+        for moneyness_spread in [0.15, 0.2, 0.5, 0.6]:
+        # for moneyness_spread in [0.15, 0.6]:
+            for ticker in ['PETR4', 'VALE3']:
+            # for ticker in ['VALE3']:
                 _ndays=5
-                sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, params_file=params_file) 
-                sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, params_file=params_file)
+                sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread) 
+                sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
                 sqr_bs_hist_vol = validate_black_scholes_model_hist_vol(ticker, database, _ndays=_ndays)
                 sqr_bs_imp_vol = validate_black_scholes_model_imp_vol(ticker, database, _ndays=_ndays)
-                sqr_model_heston_imp_vol = validate_model_imp_vol(ticker, database, model='heston', params_file=params_file)
-                sqr_model_kou_imp_vol = validate_model_imp_vol(ticker, database, model='kou', params_file=params_file)
+                sqr_model_heston_imp_vol = validate_model_imp_vol(ticker, database, model='heston', moneyness_spread=moneyness_spread)
+                sqr_model_kou_imp_vol = validate_model_imp_vol(ticker, database, model='kou', moneyness_spread=moneyness_spread)
                 results.append({
                     'ticker': ticker,
                     'database': database,
@@ -299,30 +307,31 @@ def results_to_csv():
                     'sqr_model_kou': sqr_model_kou,
                     'sqr_model_heston_imp_vol': sqr_model_heston_imp_vol,
                     'sqr_model_kou_imp_vol': sqr_model_kou_imp_vol,
-                    'moneyness': params_file.split('.')[0].replace('calibrated_params', ''),
+                    'moneyness': f'{moneyness_spread*100}%',
                 })
     df_results = pd.DataFrame(results)
     df_results.to_csv('model_validation_results.csv', index=False)
             
 
 if __name__ == "__main__":
-    database = '2023-11-01'
+    # database = '2023-11-01'
     # database = '2025-01-30'
     # database = '2020-10-16'
     # ticker = "PETR4"
-    ticker = "VALE3"
+    # ticker = "VALE3"
+    # results_to_csv()
     # raise Exception
 
-    
+    # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
     for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-    # for database in [ '2025-06-10']:
-        # print(estimate_sigma_hist(ticker, database, _ndays=7))
-        # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
-        # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
-        measure(lambda: calibrate_heston_model(ticker, database, _ndays=5))
-        # validate_heston_model(ticker, database, _ndays=5)
-        measure(lambda: calibrate_kou_model(ticker, database, _ndays=5))
-        # validate_kou_model(ticker, database, _ndays=5)
-    
-        # validate_model_imp_vol(ticker, '2020-07-13', model='kou')
-        # validate_model_imp_vol(ticker, '2020-07-13', model='heston')
+        for moneyness_spread in [0.15, 0.2, 0.5, 0.6]:
+            for ticker in ['PETR4', 'VALE3']:
+                # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
+                # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
+                measure(lambda: calibrate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
+                # validate_heston_model(ticker, database, _ndays=5)
+                measure(lambda: calibrate_kou_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
+                # validate_kou_model(ticker, database, _ndays=5)
+            
+                # validate_model_imp_vol(ticker, '2020-07-13', model='kou')
+                # validate_model_imp_vol(ticker, '2020-07-13', model='heston')

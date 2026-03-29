@@ -22,20 +22,20 @@ def estimate_v0(options_data: pd.DataFrame, data_trade: str, r: float = 0.1, opt
     vol = default_vol if vol is np.nan else vol
     return vol ** 2
 
-def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'market'] = 'market', verbose=False):
-    options_data = get_option_data(ticker, database, database)
+def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'market'] = 'market', moneyness_divergence: float = 0.15, verbose=False):
+    options_data = get_option_data(ticker, database, database, moneyness_divergence=moneyness_divergence)
     options_data = options_data[options_data['Asset Ticker'] == ticker]
     imp_vols = []
     r = get_selic(options_data.iloc[0]['TradeDate']) / 100
     for (_, row) in options_data.iterrows():
         if type == 'heston':
-            params = load_params("heston", database, ticker)
+            params = load_params("heston", database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
             if 'v0' not in params:
                 params['v0'] = estimate_v0(options_data, row['TradeDate'], r=r)
             price = heston_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
             if verbose: print(f"Heston price: {price:.2f}, Market price: {row['LastPrice']}")
         elif type == 'kou':
-            params = load_params("kou", database, ticker)
+            params = load_params("kou", database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
             price = kou_option_price(**{ 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] }, **params)
             if verbose: print(f"Kou price: {price:.2f}, Market price: {row['LastPrice']}")
         elif type == 'market':
