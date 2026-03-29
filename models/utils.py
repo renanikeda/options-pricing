@@ -54,7 +54,7 @@ def gen_valid_date_list(ini_date: str, ndays: int, return_format: str = '%Y%m%d'
     abs_counter = 0
     date_list = []
     while counter < abs(ndays):
-        if abs_counter > ndays*2: break
+        if abs_counter > abs(ndays)*2: break
         if os.path.exists(options_data(database=start_date.strftime('%Y%m%d'))):
             date_list.append(start_date.strftime(return_format))
             counter += 1
