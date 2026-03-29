@@ -41,8 +41,8 @@ def compress_data():
 
 if __name__ == "__main__":
 
-  date_ini = '2025-06-01'
-  date_end = '2025-06-3'
+  date_ini = '2020-01-01'
+  date_end = '2026-03-30'
   # database = '20200901'
   output = 'Histórico B3'
 

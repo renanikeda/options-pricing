@@ -170,7 +170,7 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
     limit_params = [param["limits"] for key, param in params.items()]
 
     options_full_data = get_option_data(ticker, data_ini, database, moneyness_divergence=moneyness_spread)
-    print(len(options_full_data))
+    print(f'Moneyness spread: {moneyness_spread*100}%, Options data length: {len(options_full_data)}')
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'], 'v0': v0 } for _, row in options_full_data.iterrows()]
@@ -236,7 +236,7 @@ def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays 
     initial_params = [param["x0"] for key, param in params.items()]
     limit_params = [param["limits"] for key, param in params.items()]
     options_full_data = get_option_data(asset_ticker, data_ini, database, moneyness_divergence=moneyness_spread)
-    print(len(options_full_data))
+    print(f'Moneyness spread: {moneyness_spread*100}%, Options data length: {len(options_full_data)}')
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     market_params = [{ 'price': row['LastPrice'], 'S0': row['Asset Price'], 'K': row['Strike'], 'r': r, 'tau': row['Days to Maturity'] } for _, row in options_full_data.iterrows()]
     # print('Random Market params: ', random.sample(market_params, min(5, len(market_params))))

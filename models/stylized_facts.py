@@ -4,7 +4,7 @@ from statsmodels.graphics.gofplots import qqplot
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import norm, skew, kurtosis, shapiro
+from scipy.stats import norm, skew, kurtosis, shapiro, anderson
 import seaborn as sns
 from typing import List, Literal
 
@@ -215,6 +215,7 @@ def test_returns():
     # database = '2022-04-18'
     # database = '2025-06-10'
     ticker = 'PETR4'
+    moneyness_divergence = 0.6
     
     # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
     data_start =  nworkdays(database, 2)
@@ -244,7 +245,7 @@ def test_returns():
 
     plot_n_returns([S, W[:,0].flatten()], ['Retorno Mercado', 'Retorno MBG'], size=2)
 
-    heston_params = load_params('heston', database, ticker)
+    heston_params = load_params('heston', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
     print(heston_params)
     _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=r, M=M, **heston_params)
     W_h = W_h[::daily_steps, :]
@@ -256,7 +257,7 @@ def test_returns():
     print(f'Shapiro-Wilk Heston (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W_h[:,0].flatten())
 
-    kou_params = load_params('kou', database, ticker)
+    kou_params = load_params('kou', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
     print(kou_params)
     t, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=r, M=M, **kou_params)
     W_k = W_k[::daily_steps, :]
@@ -269,6 +270,105 @@ def test_returns():
     print(f'Shapiro-Wilk Kou (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W_k[:,0].flatten())
     plot_n_returns([W_h[:,0].flatten(), W_k[:,0].flatten()], ['Retorno Heston', 'Retorno Kou'], size=2)
+
+def save_returns_metrics():
+    S0=100
+    r=0.1
+    sigma=0.5
+    M=100
+    dt=0.001
+    ndays = 252
+    daily_steps = int(1/dt)
+    database = '2020-07-13'
+    # database = '2022-04-18'
+    # database = '2025-06-10'
+    ticker = 'PETR4'
+    moneyness_divergence = 0.6
+    
+    results = []
+    for ticker in ['PETR4', 'VALE3']:
+        for moneyness_divergence in [0.15, 0.2, 0.5, 0.6]:
+            for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+                # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
+                data_start =  nworkdays(database, 2)
+                data_end = nworkdays(data_start, ndays if database != '2025-06-10' else 200)
+                # tau = ndays/252
+                
+                print(data_start, data_end)
+                S = get_asset_prices(ticker, data_start, data_end)
+                S = S['Asset Price'].values
+                S = np.diff(np.log(S), axis=0)
+                S = S.flatten()
+                market_kurt = round(kurtosis(S, axis=0, bias=False, fisher=False), 8)
+                market_skew = round(skew(S, axis=0, bias=False), 8)
+                print(f'Curtose Retorno Mercado database {ticker}', market_kurt)
+                print(f'Assimetria Retorno Mercado database {ticker}', market_skew)
+                # market_stat, market_p = shapiro(S)
+                market_stat, market_p = anderson(S, dist='norm', method='interpolate')
+                print(f'Anderson-Darling Mercado database {ticker}: Stat={market_stat:.4f}, p={market_p:.4e}')
+
+                _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
+                W = W[::daily_steps, :]
+                W = np.diff(np.log(W), axis=0)
+                gbm_kurt = np.mean(np.round(kurtosis(W, axis=0, bias=False, fisher=False), 8))
+                gbm_skew = np.mean(np.round(skew(W, axis=0, bias=False), 8))
+                print(f'Curtose Retorno MB database {ticker}', gbm_kurt)
+                print(f'Assimetria Retorno MB database {ticker}', gbm_skew)
+                # gbm_stat, gbm_p = shapiro(W[:,0].flatten())
+                gbm_stat, gbm_p = anderson(W.flatten(), dist='norm', method='interpolate')
+                print(f'Anderson-Darling MB (path 0) database {ticker}: Stat={gbm_stat:.4f}, p={gbm_p:.4e}')
+
+
+                heston_params = load_params('heston', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
+                # print(heston_params)
+                _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=r, M=M, **heston_params)
+                W_h = W_h[::daily_steps, :]
+                W_h = np.diff(np.log(W_h), axis=0)
+                heston_kurt= np.mean(np.round(kurtosis(W_h, axis=0, bias=False, fisher=False), 8))
+                heston_skew = np.mean(np.round(skew(W_h, axis=0, bias=False), 8))
+                print(f'Curtose Retorno Heston database {ticker}', heston_kurt)
+                print(f'Assimetria Retorno Heston database {ticker}', heston_skew)
+                # heston_stat, heston_p = shapiro(W_h[:,0].flatten())
+                heston_stat, heston_p = anderson(W_h.flatten(), dist='norm', method='interpolate')
+                print(f'Anderson-Darling Heston (path 0) database {ticker}: Stat={heston_stat:.4f}, p={heston_p:.4e}')
+
+                kou_params = load_params('kou', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
+                # print(kou_params)
+                _, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=r, M=M, **kou_params)
+                W_k = W_k[::daily_steps, :]
+                W_k = np.diff(np.log(W_k), axis=0)
+                kou_kurt = np.mean(np.round(kurtosis(W_k, axis=0, bias=False, fisher=False), 8))
+                kou_skew = np.mean(np.round(skew(W_k, axis=0, bias=False), 8))
+                print(f'Curtose Retorno Kou database {ticker}', kou_kurt)
+                print(f'Assimetria Retorno Kou database {ticker}', kou_skew)
+                # kou_stat, kou_p = shapiro(W_k[:,0].flatten())
+                kou_stat, kou_p = anderson(W_k.flatten(), dist='norm', method='interpolate')
+                print(f'Anderson-Darling Kou (path 0) database {ticker}: Stat={kou_stat:.4f}, p={kou_p:.4e}')
+
+                results.append({
+                    'Ticker': ticker,
+                    'Database': database,
+                    'Market Kurtosis': round(float(market_kurt), 8),
+                    'Market Skewness': round(float(market_skew), 8),
+                    'Market Anderson-Darling Stat': round(float(market_stat), 8),
+                    'Market Anderson-Darling p-value': round(float(market_p), 8),
+                    'GBM Kurtosis': round(float(gbm_kurt), 8),
+                    'GBM Skewness': round(float(gbm_skew), 8),
+                    'GBM Anderson-Darling Stat': round(float(gbm_stat), 8),
+                    'GBM Anderson-Darling p-value': round(float(gbm_p), 8),
+                    'Heston Kurtosis': round(float(heston_kurt), 8),
+                    'Heston Skewness': round(float(heston_skew), 8),
+                    'Heston Anderson-Darling Stat': round(float(heston_stat), 8),
+                    'Heston Anderson-Darling p-value': round(float(heston_p), 8),
+                    'Kou Kurtosis': round(float(kou_kurt), 8),
+                    'Kou Skewness': round(float(kou_skew), 8),
+                    'Kou Anderson-Darling Stat': round(float(kou_stat), 8),
+                    'Kou Anderson-Darling p-value': round(float(kou_p), 8),
+                    'Moneyness Divergence': moneyness_divergence,
+                })
+
+    results_df = pd.DataFrame(results)
+    results_df.to_csv('stylized_facts_results.csv', index=False)
 
 def check_smile():
     # database = "2025-01-30"
@@ -338,7 +438,8 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    test_returns()
+    # test_returns()
+    save_returns_metrics()
     # test_vol()
     # test_smile()
     # check_smile()
