@@ -250,6 +250,7 @@ def get_options_treated(database: str, output: str = '.'):
         products.rename(columns={'Ticker_x': 'Ticker', 'Ticker_y': 'Asset Ticker'}, inplace=True)
         final_df = negotiations.merge(products[['Ticker', 'Style', 'Type', 'Strike', 'Maturity', 'Asset Ticker']], on='Ticker', how='left')
         final_df.drop(columns=['ID'], inplace=True)
+        final_df.loc[final_df['Ticker'].str.contains('IBOV') & ~final_df['Strike'].isna(), 'Asset Ticker'] = 'BOVA11'
         return final_df
 
     except:
