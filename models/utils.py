@@ -27,7 +27,7 @@ def classify_option(ticker: str):
         raise ValueError("Ticker does not specify option type.")
 
 def get_prefixo_ticker(ticker: str):
-    return ticker[:4]
+    return ticker[:4] if ticker != 'BOVA11' else 'BOV'
 
 # colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
 colors = ['darkred', 'darkgoldenrod', 'olive', 'darkcyan', 'indigo', 'darkmagenta', 'saddlebrown', 'teal', 'slategray', 'darkgreen']
@@ -94,7 +94,7 @@ def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
     ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
     return ewma_vol.dropna()
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, moneyness_divergence: float = 0.60, min_maturity_dist: float = 15/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, min_trade_qty: int = 0, moneyness_divergence: float = 0.60, min_maturity_dist: float = 15/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     
@@ -119,7 +119,16 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_pr
         prices = prices[prices['Ticker'].str.contains(get_prefixo_ticker(asset_ticker))]
         prices['Asset Price'] = prices[prices['Ticker'] == asset_ticker]['LastPrice'].values[0]
         full_prices = pd.concat([full_prices, prices], ignore_index=True)
+    if asset_ticker=='BOVA11':
+        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MaxPrice'] = full_prices['MaxPrice']/1000
+        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MinPrice'] = full_prices['MinPrice']/1000
+        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'FirstPrice'] = full_prices['MinPrice']/1000
+        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'LastPrice'] = full_prices['MinPrice']/1000
+        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'AvgPrice'] = full_prices['MinPrice']/1000
+        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'Strike'] = full_prices['Strike']/1000
+
     full_prices.dropna(subset=['Strike'], inplace=True)
+    full_prices = full_prices[full_prices['TradeQty'] >= min_trade_qty]
     full_prices['Days to Maturity'] = days_to_maturity(full_prices['TradeDate'].tolist(), full_prices['Maturity'].tolist())
     full_prices = full_prices[full_prices['Days to Maturity'] > 0.0] 
     type_value = depara_option_type(type)
@@ -127,10 +136,8 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_pr
     full_prices = full_prices[full_prices['Style'] == style.value]
     full_prices['spread'] = abs((full_prices['MaxPrice'] - full_prices['MinPrice'])) / ((full_prices['MaxPrice'] + full_prices['MinPrice'])/2)
     full_prices = full_prices[full_prices['spread'] <= spread_price]
-    # print(full_prices.sort_values(by=['Days to Maturity'], ascending=True))
     full_prices = full_prices[full_prices['Days to Maturity'] >= min_maturity_dist]
     full_prices['moneyness'] = full_prices['Asset Price'] / full_prices['Strike']
-    # print(full_prices.sort_values(by=['moneyness'], ascending=False))
     full_prices = full_prices[(full_prices['moneyness'] >= (1 - moneyness_divergence)) & 
                               (full_prices['moneyness'] <= (1 + moneyness_divergence))]
     return full_prices
