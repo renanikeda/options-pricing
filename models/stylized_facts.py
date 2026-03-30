@@ -4,7 +4,7 @@ from statsmodels.graphics.gofplots import qqplot
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import norm, skew, kurtosis, shapiro, anderson
+from scipy.stats import norm, skew, kurtosis, shapiro, anderson, normaltest
 import seaborn as sns
 from typing import List, Literal
 
@@ -304,8 +304,8 @@ def save_returns_metrics():
                 print(f'Curtose Retorno Mercado database {ticker}', market_kurt)
                 print(f'Assimetria Retorno Mercado database {ticker}', market_skew)
                 # market_stat, market_p = shapiro(S)
-                market_stat, market_p = anderson(S, dist='norm', method='interpolate')
-                print(f'Anderson-Darling Mercado database {ticker}: Stat={market_stat:.4f}, p={market_p:.4e}')
+                market_stat, market_p = normaltest(S)
+                print(f'D’Agostino Test Mercado database {ticker}: Stat={market_stat:.4f}, p={market_p:.4e}')
 
                 _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
                 W = W[::daily_steps, :]
@@ -315,8 +315,8 @@ def save_returns_metrics():
                 print(f'Curtose Retorno MB database {ticker}', gbm_kurt)
                 print(f'Assimetria Retorno MB database {ticker}', gbm_skew)
                 # gbm_stat, gbm_p = shapiro(W[:,0].flatten())
-                gbm_stat, gbm_p = anderson(W.flatten(), dist='norm', method='interpolate')
-                print(f'Anderson-Darling MB (path 0) database {ticker}: Stat={gbm_stat:.4f}, p={gbm_p:.4e}')
+                gbm_stat, gbm_p = normaltest(W.flatten())
+                print(f'D’Agostino Test MB (path 0) database {ticker}: Stat={gbm_stat:.4f}, p={gbm_p:.4e}')
 
 
                 heston_params = load_params('heston', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
@@ -329,8 +329,8 @@ def save_returns_metrics():
                 print(f'Curtose Retorno Heston database {ticker}', heston_kurt)
                 print(f'Assimetria Retorno Heston database {ticker}', heston_skew)
                 # heston_stat, heston_p = shapiro(W_h[:,0].flatten())
-                heston_stat, heston_p = anderson(W_h.flatten(), dist='norm', method='interpolate')
-                print(f'Anderson-Darling Heston (path 0) database {ticker}: Stat={heston_stat:.4f}, p={heston_p:.4e}')
+                heston_stat, heston_p = normaltest(W_h.flatten())
+                print(f'D’Agostino Test Heston (path 0) database {ticker}: Stat={heston_stat:.4f}, p={heston_p:.4e}')
 
                 kou_params = load_params('kou', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
                 # print(kou_params)
@@ -342,28 +342,28 @@ def save_returns_metrics():
                 print(f'Curtose Retorno Kou database {ticker}', kou_kurt)
                 print(f'Assimetria Retorno Kou database {ticker}', kou_skew)
                 # kou_stat, kou_p = shapiro(W_k[:,0].flatten())
-                kou_stat, kou_p = anderson(W_k.flatten(), dist='norm', method='interpolate')
-                print(f'Anderson-Darling Kou (path 0) database {ticker}: Stat={kou_stat:.4f}, p={kou_p:.4e}')
+                kou_stat, kou_p = normaltest(W_k.flatten())
+                print(f'D’Agostino Test Kou (path 0) database {ticker}: Stat={kou_stat:.4f}, p={kou_p:.4e}')
 
                 results.append({
                     'Ticker': ticker,
                     'Database': database,
                     'Market Kurtosis': round(float(market_kurt), 8),
                     'Market Skewness': round(float(market_skew), 8),
-                    'Market Anderson-Darling Stat': round(float(market_stat), 8),
-                    'Market Anderson-Darling p-value': round(float(market_p), 8),
+                    # 'Market D’Agostino Stat': round(float(market_stat), 8),
+                    'Market D’Agostino p-value': round(float(market_p), 8),
                     'GBM Kurtosis': round(float(gbm_kurt), 8),
                     'GBM Skewness': round(float(gbm_skew), 8),
-                    'GBM Anderson-Darling Stat': round(float(gbm_stat), 8),
-                    'GBM Anderson-Darling p-value': round(float(gbm_p), 8),
+                    # 'GBM D’Agostino Stat': round(float(gbm_stat), 8),
+                    'GBM D’Agostino p-value': round(float(gbm_p), 8),
                     'Heston Kurtosis': round(float(heston_kurt), 8),
                     'Heston Skewness': round(float(heston_skew), 8),
-                    'Heston Anderson-Darling Stat': round(float(heston_stat), 8),
-                    'Heston Anderson-Darling p-value': round(float(heston_p), 8),
+                    # 'Heston D’Agostino Stat': round(float(heston_stat), 8),
+                    'Heston D’Agostino p-value': round(float(heston_p), 8),
                     'Kou Kurtosis': round(float(kou_kurt), 8),
                     'Kou Skewness': round(float(kou_skew), 8),
-                    'Kou Anderson-Darling Stat': round(float(kou_stat), 8),
-                    'Kou Anderson-Darling p-value': round(float(kou_p), 8),
+                    # 'Kou D’Agostino Stat': round(float(kou_stat), 8),
+                    'Kou D’Agostino p-value': round(float(kou_p), 8),
                     'Moneyness Divergence': moneyness_divergence,
                 })
 
@@ -397,11 +397,12 @@ def test_smile():
     # database = "2025-01-30"
     # database = "2023-11-01"
     # database = "2021-04-20"   
-    ticker = "VALE3"
+    ticker = "BOVA11"
     moneyness_divergence = 0.15
     # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
     for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-        for moneyness_divergence in [0.15, 0.2, 0.5, 0.6]:
+        # for moneyness_divergence in [0.15, 0.2, 0.5, 0.6, 0.7]:
+        for moneyness_divergence in [0.2, 0.7]:
             print(f"Database: {database}, Moneyness Divergence: {moneyness_divergence}")
             surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_divergence)
             # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
@@ -439,8 +440,8 @@ def test_asset_prices():
     
 if __name__ == "__main__":
     # test_returns()
-    save_returns_metrics()
+    # save_returns_metrics()
     # test_vol()
-    # test_smile()
+    test_smile()
     # check_smile()
     # test_asset_prices()

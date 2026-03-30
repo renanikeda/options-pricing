@@ -125,7 +125,8 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_pr
     type_value = depara_option_type(type)
     full_prices = full_prices[full_prices['Type'] == type_value]
     full_prices = full_prices[full_prices['Style'] == style.value]
-    full_prices = full_prices[full_prices['OscnPctg'] <= spread_price*100]
+    full_prices['spread'] = abs((full_prices['MaxPrice'] - full_prices['MinPrice'])) / ((full_prices['MaxPrice'] + full_prices['MinPrice'])/2)
+    full_prices = full_prices[full_prices['spread'] <= spread_price]
     # print(full_prices.sort_values(by=['Days to Maturity'], ascending=True))
     full_prices = full_prices[full_prices['Days to Maturity'] >= min_maturity_dist]
     full_prices['moneyness'] = full_prices['Asset Price'] / full_prices['Strike']
