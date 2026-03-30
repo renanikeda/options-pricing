@@ -286,9 +286,9 @@ def save_returns_metrics():
     moneyness_divergence = 0.6
     
     results = []
-    for ticker in ['PETR4', 'VALE3']:
-        for moneyness_divergence in [0.15, 0.2, 0.5, 0.6]:
-            for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+    for ticker in ['PETR4', 'VALE3', 'BOVA11']:
+        for moneyness_divergence in [0.15, 0.2, 0.5, 0.6, 0.7]:
+            for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
                 # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
                 data_start =  nworkdays(database, 2)
                 data_end = nworkdays(data_start, ndays if database != '2025-06-10' else 200)
@@ -397,12 +397,18 @@ def test_smile():
     # database = "2025-01-30"
     # database = "2023-11-01"
     # database = "2021-04-20"   
-    ticker = "BOVA11"
+    ticker = "PETR4"
     moneyness_divergence = 0.15
     # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
-    for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-        # for moneyness_divergence in [0.15, 0.2, 0.5, 0.6, 0.7]:
-        for moneyness_divergence in [0.2, 0.7]:
+    # for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+    moneynesses = [ 0.2, 0.5, 0.7]
+    for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
+        n_cols = len(moneynesses)
+        fig, axs = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5), squeeze=False)
+        axs = axs.flatten()
+        fig.suptitle(f'Sorriso de volatilidade Data Base {database} para {ticker}')
+        for (index, moneyness_divergence) in enumerate(moneynesses):
+        # for moneyness_divergence in [0.2, 0.7]:
             print(f"Database: {database}, Moneyness Divergence: {moneyness_divergence}")
             surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_divergence)
             # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
@@ -413,17 +419,20 @@ def test_smile():
             surface_kou = vol_surface(ticker, database, 'kou', moneyness_divergence=moneyness_divergence)
             surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
             vol_hist = estimate_sigma_hist(ticker, database, _ndays=7).values.flatten()[-1]
-            plt.figure(figsize=(10, 6))
-            plt.scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market Implied Volatility', s=10)
-            plt.plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston Implied Volatility')
-            plt.plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou Implied Volatility')
-            plt.axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Historical Volatility')
-            plt.title(f'Implied Volatility Smile Data Base {database} for {ticker} on maturity {maturity}')
-            plt.xlabel('Strike Price')
-            plt.ylabel('Implied Volatility')
-            plt.legend()
-            plt.grid()
-            plt.show()
+            
+            axs[index].scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market', s=10)
+            axs[index].plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston')
+            axs[index].plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou')
+            axs[index].axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Volatility')
+            axs[index].set_title(f'Moneyness [{(1-moneyness_divergence)}, {(1+moneyness_divergence)}]')
+            axs[index].set_xlabel('Preço de Exercício')
+            if index == 0:
+                axs[index].set_ylabel('Volatilidade Implícita')
+            axs[index].legend()
+            axs[index].grid()
+        
+        plt.tight_layout()
+        plt.show()
 
 def test_vol():
     asset_ticker = 'PETR4'
