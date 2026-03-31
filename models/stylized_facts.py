@@ -370,7 +370,7 @@ def check_smile():
     # database = "2025-01-30"
     # database = "2023-11-01"
     # database = "2021-04-20"   
-    ticker = "PETR4"
+    ticker = "VALE3"
     # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
     # database = '2022-04-18'
     database = '2025-06-10'
@@ -391,31 +391,32 @@ def check_smile():
 
 def test_smile():
     ticker = "VALE3"
-    moneynesses = [0.2, 0.5, 0.7]
+    moneynesses = [0.15, 0.5]
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
     # for database in ['2021-04-20', '2022-04-18']:
         n_cols = len(moneynesses)
         fig, axs = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5), squeeze=False)
         axs = axs.flatten()
         fig.suptitle(f'Sorriso de volatilidade Data Base {database} para {ticker}')
+        maturity = None
         for (index, moneyness_divergence) in enumerate(moneynesses):
         # for moneyness_divergence in [0.2, 0.7]:
             print(f"Database: {database}, Moneyness Divergence: {moneyness_divergence}")
             surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_divergence)
             # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
-            maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+            maturity = maturity or surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
             surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
             surface_heston = vol_surface(ticker, database, 'heston', moneyness_divergence=moneyness_divergence)
             surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
             surface_kou = vol_surface(ticker, database, 'kou', moneyness_divergence=moneyness_divergence)
             surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
-            vol_hist = estimate_sigma_hist(ticker, database, _ndays=7).values.flatten()[-1]
+            vol_hist = estimate_sigma_hist(ticker, database, _ndays=10).values.flatten()[-1]
             
             axs[index].scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market', s=10)
             axs[index].plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston')
             axs[index].plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou')
             axs[index].axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Volatility')
-            axs[index].set_title(f'Moneyness [{round(1-moneyness_divergence, 2)}, {round(1+moneyness_divergence, 2)}]')
+            axs[index].set_title(f'Moneyness [{round(1-moneyness_divergence, 2)}, {round(1+moneyness_divergence, 2)}], maturity {maturity}')
             axs[index].set_xlabel('Preço de Exercício')
             if index == 0:
                 axs[index].set_ylabel('Volatilidade Implícita')
@@ -439,9 +440,9 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    test_returns()
+    # test_returns()
     # save_returns_metrics()
     # test_vol()
-    # test_smile()
+    test_smile()
     # check_smile()
     # test_asset_prices()

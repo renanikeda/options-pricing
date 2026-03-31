@@ -318,23 +318,28 @@ if __name__ == "__main__":
     # database = '2025-01-30'
     # database = '2020-10-16'
     # ticker = "PETR4"
-    # ticker = "VALE3"
+    ticker = "BOVA11"
     # results_to_csv()
+    # data = get_option_data(ticker, '2020-05-15', '2020-05-22', moneyness_divergence=0.6)
+    # print(data)
+    # print(len(data))
     # raise Exception
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
     # for database in ['2025-01-30', '2025-06-10']:
-        for moneyness_spread in [0.15, 0.2, 0.5, 0.6, 0.7]:
-        # for moneyness_spread in [0.2, 0.6]:
+        # for moneyness_spread in [0.15, 0.2, 0.5, 0.6, 0.7]:
+        for moneyness_spread in [0.15, 0.5]:
             # for ticker in ['PETR4', 'VALE3', 'BOVA11']:
-            for ticker in ['BOVA11']:
+            for ticker in ['PETR4', 'VALE3', 'BOVA11']:
             # for ticker in ['BOVA11']:
+                # data = get_option_data(ticker, nworkdays(database, -8), database, moneyness_divergence=0.6)
+                # print(ticker, len(data))
                 # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
                 # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
-                measure(lambda: calibrate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
+                measure(lambda: calibrate_heston_model(ticker, database, _ndays=8, moneyness_spread=moneyness_spread))
                 # validate_heston_model(ticker, database, _ndays=5)
-                measure(lambda: calibrate_kou_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
+                measure(lambda: calibrate_kou_model(ticker, database, _ndays=8, moneyness_spread=moneyness_spread))
                 # validate_kou_model(ticker, database, _ndays=5)
             
                 # validate_model_imp_vol(ticker, '2020-07-13', model='kou')

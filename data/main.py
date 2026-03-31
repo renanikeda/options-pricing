@@ -41,8 +41,8 @@ def compress_data():
 
 if __name__ == "__main__":
 
-  date_ini = '2026-03-25'
-  date_end = '2026-03-30'
+  date_ini = '2020-03-15'
+  date_end = '2020-05-31'
   # database = '20200901'
   output = 'Histórico B3'
 
@@ -60,4 +60,4 @@ if __name__ == "__main__":
         result.to_csv(f'{output}/Negociações {database}.csv', index=False)
     else:
         print("Empty result")
-#   compress_data() 
+  compress_data()

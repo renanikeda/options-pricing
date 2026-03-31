@@ -27,7 +27,8 @@ def classify_option(ticker: str):
         raise ValueError("Ticker does not specify option type.")
 
 def get_prefixo_ticker(ticker: str):
-    return ticker[:4] if ticker != 'BOVA11' else 'BOV'
+    # return ticker[:4] if ticker != 'BOVA11' else 'BOV'
+    return ticker[:4]
 
 # colors = ['black', 'red', 'green', 'blue', 'olive', 'purple', 'orange', 'brown', 'pink', 'gray']
 colors = ['darkred', 'darkgoldenrod', 'olive', 'darkcyan', 'indigo', 'darkmagenta', 'saddlebrown', 'teal', 'slategray', 'darkgreen']
@@ -119,13 +120,13 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_pr
         prices = prices[prices['Ticker'].str.contains(get_prefixo_ticker(asset_ticker))]
         prices['Asset Price'] = prices[prices['Ticker'] == asset_ticker]['LastPrice'].values[0]
         full_prices = pd.concat([full_prices, prices], ignore_index=True)
-    if asset_ticker=='BOVA11':
-        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MaxPrice'] = full_prices['MaxPrice']/1000
-        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MinPrice'] = full_prices['MinPrice']/1000
-        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'FirstPrice'] = full_prices['MinPrice']/1000
-        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'LastPrice'] = full_prices['MinPrice']/1000
-        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'AvgPrice'] = full_prices['MinPrice']/1000
-        full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'Strike'] = full_prices['Strike']/1000
+    # if asset_ticker=='BOVA11':
+    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MaxPrice'] = full_prices['MaxPrice']/1000
+    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MinPrice'] = full_prices['MinPrice']/1000
+    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'FirstPrice'] = full_prices['MinPrice']/1000
+    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'LastPrice'] = full_prices['MinPrice']/1000
+    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'AvgPrice'] = full_prices['MinPrice']/1000
+    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'Strike'] = full_prices['Strike']/1000
 
     full_prices.dropna(subset=['Strike'], inplace=True)
     
