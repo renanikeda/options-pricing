@@ -285,7 +285,7 @@ def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "20
 
 def results_to_csv():
     results = []
-    for ticker in ['PETR4', 'VALE3']:
+    for ticker in ['PETR4', 'VALE3', 'BOVA11']:
     # for ticker in ['VALE3']:
         for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
         # for database in ['2020-07-13', '2022-04-18']:
@@ -320,7 +320,6 @@ if __name__ == "__main__":
     # ticker = "PETR4"
     # ticker = "VALE3"
     # results_to_csv()
-    # print(len(get_option_data('BOVA11', '2026-03-30', '2026-03-30', min_trade_qty=0, spread_price=10, moneyness_divergence=10, min_maturity_dist=0)))
     # raise Exception
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)

@@ -239,11 +239,11 @@ def test_returns():
     # W = W.flatten()
     print(f'Curtose Retorno MB database {ticker}', np.mean(np.round(kurtosis(W, axis=0, bias=False, fisher=False), 2)))
     print(f'Assimetria Retorno MB database {ticker}', np.mean(np.round(skew(W, axis=0, bias=False), 2)))
-    stat, p = shapiro(W[:,0].flatten())
-    print(f'Shapiro-Wilk MB (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
+    # stat, p = shapiro(W[:,0].flatten())
+    # print(f'Shapiro-Wilk MB (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W[:,0].flatten())
 
-    plot_n_returns([S, W[:,0].flatten()], ['Retorno Mercado', 'Retorno MBG'], size=2)
+    plot_n_returns([S, W.flatten()], ['Retorno Mercado', 'Retorno MBG'], size=2)
 
     heston_params = load_params('heston', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
     print(heston_params)
@@ -253,8 +253,8 @@ def test_returns():
     # W_h = W_h.flatten()
     print(f'Curtose Retorno Heston database {ticker}', np.mean(np.round(kurtosis(W_h, axis=0, bias=False, fisher=False), 2)))
     print(f'Assimetria Retorno Heston database {ticker}', np.mean(np.round(skew(W_h, axis=0, bias=False), 2)))
-    stat, p = shapiro(W_h[:,0].flatten())
-    print(f'Shapiro-Wilk Heston (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
+    # stat, p = shapiro(W_h[:,0].flatten())
+    # print(f'Shapiro-Wilk Heston (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W_h[:,0].flatten())
 
     kou_params = load_params('kou', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
@@ -266,10 +266,10 @@ def test_returns():
     # plot_returns(W_k, bins = int(50 * tau * 10))
     print(f'Curtose Retorno Kou database {ticker}', np.mean(np.round(kurtosis(W_k, axis=0, bias=False, fisher=False), 2)))
     print(f'Assimetria Retorno Kou database {ticker}', np.mean(np.round(skew(W_k, axis=0, bias=False), 2)))
-    stat, p = shapiro(W_k[:,0].flatten())
-    print(f'Shapiro-Wilk Kou (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
+    # stat, p = shapiro(W_k[:,0].flatten())
+    # print(f'Shapiro-Wilk Kou (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W_k[:,0].flatten())
-    plot_n_returns([W_h[:,0].flatten(), W_k[:,0].flatten()], ['Retorno Heston', 'Retorno Kou'], size=2)
+    plot_n_returns([W_h.flatten(), W_k.flatten()], ['Retorno Heston', 'Retorno Kou'], size=2)
 
 def save_returns_metrics():
     S0=100
@@ -279,10 +279,6 @@ def save_returns_metrics():
     dt=0.001
     ndays = 252
     daily_steps = int(1/dt)
-    database = '2020-07-13'
-    # database = '2022-04-18'
-    # database = '2025-06-10'
-    ticker = 'PETR4'
     moneyness_divergence = 0.6
     
     results = []
@@ -443,9 +439,9 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    # test_returns()
+    test_returns()
     # save_returns_metrics()
     # test_vol()
-    test_smile()
+    # test_smile()
     # check_smile()
     # test_asset_prices()

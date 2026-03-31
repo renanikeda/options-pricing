@@ -23,7 +23,7 @@ def estimate_v0(options_data: pd.DataFrame, data_trade: str, r: float = 0.1, opt
     return vol ** 2
 
 def vol_surface(ticker: str, database: str, type: Literal['heston', 'kou', 'market'] = 'market', moneyness_divergence: float = 0.15, verbose=False):
-    options_data = get_option_data(ticker, database, database, moneyness_divergence=moneyness_divergence, min_trade_qty=1)
+    options_data = get_option_data(ticker, database, database, moneyness_divergence=moneyness_divergence, min_trade_qty=4)
     options_data = options_data[options_data['Asset Ticker'] == ticker]
     imp_vols = []
     r = get_selic(options_data.iloc[0]['TradeDate']) / 100
