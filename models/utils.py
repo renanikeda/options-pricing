@@ -128,15 +128,17 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_pr
         full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'Strike'] = full_prices['Strike']/1000
 
     full_prices.dropna(subset=['Strike'], inplace=True)
-    full_prices = full_prices[full_prices['TradeQty'] >= min_trade_qty]
-    full_prices['Days to Maturity'] = days_to_maturity(full_prices['TradeDate'].tolist(), full_prices['Maturity'].tolist())
-    full_prices = full_prices[full_prices['Days to Maturity'] > 0.0] 
+    
     type_value = depara_option_type(type)
     full_prices = full_prices[full_prices['Type'] == type_value]
     full_prices = full_prices[full_prices['Style'] == style.value]
+    
+    full_prices = full_prices[full_prices['TradeQty'] >= min_trade_qty]
+    full_prices['Days to Maturity'] = days_to_maturity(full_prices['TradeDate'].tolist(), full_prices['Maturity'].tolist())
+    full_prices = full_prices[full_prices['Days to Maturity'] > 0.0] 
+    full_prices = full_prices[full_prices['Days to Maturity'] >= min_maturity_dist]
     full_prices['spread'] = abs((full_prices['MaxPrice'] - full_prices['MinPrice'])) / ((full_prices['MaxPrice'] + full_prices['MinPrice'])/2)
     full_prices = full_prices[full_prices['spread'] <= spread_price]
-    full_prices = full_prices[full_prices['Days to Maturity'] >= min_maturity_dist]
     full_prices['moneyness'] = full_prices['Asset Price'] / full_prices['Strike']
     full_prices = full_prices[(full_prices['moneyness'] >= (1 - moneyness_divergence)) & 
                               (full_prices['moneyness'] <= (1 + moneyness_divergence))]
