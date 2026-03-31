@@ -394,15 +394,10 @@ def check_smile():
     plt.show()
 
 def test_smile():
-    # database = "2025-01-30"
-    # database = "2023-11-01"
-    # database = "2021-04-20"   
-    ticker = "PETR4"
-    moneyness_divergence = 0.15
-    # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
-    # for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
-    moneynesses = [ 0.2, 0.5, 0.7]
+    ticker = "VALE3"
+    moneynesses = [0.2, 0.5, 0.7]
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
+    # for database in ['2021-04-20', '2022-04-18']:
         n_cols = len(moneynesses)
         fig, axs = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5), squeeze=False)
         axs = axs.flatten()
@@ -424,7 +419,7 @@ def test_smile():
             axs[index].plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston')
             axs[index].plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou')
             axs[index].axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Volatility')
-            axs[index].set_title(f'Moneyness [{(1-moneyness_divergence)}, {(1+moneyness_divergence)}]')
+            axs[index].set_title(f'Moneyness [{round(1-moneyness_divergence, 2)}, {round(1+moneyness_divergence, 2)}]')
             axs[index].set_xlabel('Preço de Exercício')
             if index == 0:
                 axs[index].set_ylabel('Volatilidade Implícita')

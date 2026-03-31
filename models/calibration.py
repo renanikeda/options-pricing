@@ -320,13 +320,16 @@ if __name__ == "__main__":
     # ticker = "PETR4"
     # ticker = "VALE3"
     # results_to_csv()
+    # print(len(get_option_data('BOVA11', '2026-03-30', '2026-03-30', min_trade_qty=0, spread_price=10, moneyness_divergence=10, min_maturity_dist=0)))
     # raise Exception
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
-    for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
+    for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
+    # for database in ['2025-01-30', '2025-06-10']:
         for moneyness_spread in [0.15, 0.2, 0.5, 0.6, 0.7]:
-        # for moneyness_spread in [0.7]:
-            for ticker in ['PETR4', 'VALE3', 'BOVA11']:
+        # for moneyness_spread in [0.2, 0.6]:
+            # for ticker in ['PETR4', 'VALE3', 'BOVA11']:
+            for ticker in ['BOVA11']:
             # for ticker in ['BOVA11']:
                 # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
                 # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
