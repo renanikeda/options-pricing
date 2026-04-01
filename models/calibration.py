@@ -283,13 +283,13 @@ def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "20
 
 def results_to_csv():
     results = []
+    _ndays=5
     for ticker in ['PETR4', 'VALE3', 'BOVA11']: 
     # for ticker in ['VALE3']:
         # for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
         for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
             for moneyness_spread in [0.15, 0.6]:
             # for moneyness_spread in [0.15, 0.6]:
-                _ndays=5
                 sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread) 
                 sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
                 sqr_bs_hist_vol = validate_black_scholes_model_hist_vol(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
@@ -325,18 +325,18 @@ if __name__ == "__main__":
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
-    # for database in ['2025-01-30', '2025-06-10']:
+    # for database in ['2021-04-20', '2023-11-01']:
         # for moneyness_spread in [0.15, 0.2, 0.5, 0.6, 0.7]:
-        for moneyness_spread in [0.15, 0.5]:
+        for moneyness_spread in [0.15, 0.6]:
             # for ticker in ['PETR4', 'VALE3', 'BOVA11']:
-            for ticker in ['PETR4', 'VALE3']:
+            for ticker in ['PETR4']:
             # for ticker in ['BOVA11']:
                 # data = get_option_data(ticker, nworkdays(database, -8), database, moneyness_divergence=0.6)
                 # print(ticker, len(data))
                 # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
                 # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
                 measure(lambda: calibrate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
-                # validate_heston_model(ticker, database, _ndays=5)
+                # validate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread)
                 measure(lambda: calibrate_kou_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
                 # validate_kou_model(ticker, database, _ndays=5)
             

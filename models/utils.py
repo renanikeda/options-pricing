@@ -95,7 +95,7 @@ def estimate_sigma_hist(asset_ticker: str, data_base: str, _ndays: int):
     ewma_vol = ewma_volatility(prices_df['Asset Price'], alpha=0.94).copy()
     return ewma_vol.dropna()
 
-def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, min_trade_qty: int = 0, moneyness_divergence: float = 0.60, min_maturity_dist: float = 15/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
+def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_price: float = 0.75, min_trade_qty: int = 1, moneyness_divergence: float = 0.60, min_maturity_dist: float = 15/365, style: OptionStyle = OptionStyle.EURO, type: OptionType = OptionType.CALL) -> pd.DataFrame:
     """
     Placeholder function to retrieve option prices.
     
@@ -120,13 +120,6 @@ def get_option_data(asset_ticker: str, start_date: str, end_date: str, spread_pr
         prices = prices[prices['Ticker'].str.contains(get_prefixo_ticker(asset_ticker))]
         prices['Asset Price'] = prices[prices['Ticker'] == asset_ticker]['LastPrice'].values[0]
         full_prices = pd.concat([full_prices, prices], ignore_index=True)
-    # if asset_ticker=='BOVA11':
-    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MaxPrice'] = full_prices['MaxPrice']/1000
-    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'MinPrice'] = full_prices['MinPrice']/1000
-    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'FirstPrice'] = full_prices['MinPrice']/1000
-    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'LastPrice'] = full_prices['MinPrice']/1000
-    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'AvgPrice'] = full_prices['MinPrice']/1000
-    #     full_prices.loc[full_prices['Ticker'].str.contains('IBOV'), 'Strike'] = full_prices['Strike']/1000
 
     full_prices.dropna(subset=['Strike'], inplace=True)
     
