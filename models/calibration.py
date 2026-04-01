@@ -329,7 +329,7 @@ if __name__ == "__main__":
         # for moneyness_spread in [0.15, 0.2, 0.5, 0.6, 0.7]:
         for moneyness_spread in [0.15, 0.6]:
             # for ticker in ['PETR4', 'VALE3', 'BOVA11']:
-            for ticker in ['PETR4']:
+            for ticker in ['PETR4', 'VALE3']:
             # for ticker in ['BOVA11']:
                 # data = get_option_data(ticker, nworkdays(database, -8), database, moneyness_divergence=0.6)
                 # print(ticker, len(data))
