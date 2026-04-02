@@ -283,7 +283,7 @@ def save_returns_metrics():
     moneyness_divergence = 0.6
     
     results = []
-    for ticker in ['PETR4', 'VALE3', 'BOVA11']:
+    for ticker in ['PETR4', 'VALE3']:
         for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
             for moneyness_divergence in [0.15, 0.6]:
                 # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
@@ -342,27 +342,35 @@ def save_returns_metrics():
                 kou_stat, kou_p = normaltest(W_k.flatten())
                 print(f'D’Agostino Test Kou (path 0) database {ticker}: Stat={kou_stat:.4f}, p={kou_p:.4e}')
 
-                results.append({
-                    'Ticker': ticker,
-                    'Database': datetime.strptime(database, '%Y-%m-%d').strftime('%d/%m/%Y'),
-                    'Market Kurtosis': round(float(market_kurt), 4),
-                    'Market Skewness': round(float(market_skew), 4),
-                    # 'Market D’Agostino Stat': round(float(market_stat), 8),
-                    'Market D’Agostino p-value': round(float(market_p), 4),
-                    'GBM Kurtosis': round(float(gbm_kurt), 4),
-                    'GBM Skewness': round(float(gbm_skew), 4),
-                    # 'GBM D’Agostino Stat': round(float(gbm_stat), 8),
-                    'GBM D’Agostino p-value': round(float(gbm_p), 4),
-                    'Heston Kurtosis': round(float(heston_kurt), 4),
-                    'Heston Skewness': round(float(heston_skew), 4),
-                    # 'Heston D’Agostino Stat': round(float(heston_stat), 8),
-                    'Heston D’Agostino p-value': round(float(heston_p), 4),
-                    'Kou Kurtosis': round(float(kou_kurt), 4),
-                    'Kou Skewness': round(float(kou_skew), 4),
-                    # 'Kou D’Agostino Stat': round(float(kou_stat), 8),
-                    'Kou D’Agostino p-value': round(float(kou_p), 4),
-                    'Moneyness Divergence': moneyness_divergence,
-                })
+                for medida in ['Curtose', 'Assimetria', 'D’Agostino p-value']:
+                    results.append({
+                        'Ticker': ticker,
+                        'Database': datetime.strptime(database, '%Y-%m-%d').strftime('%d/%m/%Y'),
+                        'Medida': medida,
+                        'Mercado': round(float(market_kurt) if medida == 'Curtose' else market_skew if medida == 'Assimetria' else market_p, 4),
+                        'Black-Scholes': round(float(gbm_kurt) if medida == 'Curtose' else gbm_skew if medida == 'Assimetria' else gbm_p, 4),
+                        'Heston': round(float(heston_kurt) if medida == 'Curtose' else heston_skew if medida == 'Assimetria' else heston_p, 4),
+                        'Kou': round(float(kou_kurt) if medida == 'Curtose' else kou_skew if medida == 'Assimetria' else kou_p, 4),
+                        'Moneyness Divergence': moneyness_divergence,
+
+                        # 'Market Kurtosis': round(float(market_kurt), 4),
+                        # 'Market Skewness': round(float(market_skew), 4),
+                        # # 'Market D’Agostino Stat': round(float(market_stat), 8),
+                        # 'Market D’Agostino p-value': round(float(market_p), 4),
+                        # 'GBM Kurtosis': round(float(gbm_kurt), 4),
+                        # 'GBM Skewness': round(float(gbm_skew), 4),
+                        # # 'GBM D’Agostino Stat': round(float(gbm_stat), 8),
+                        # 'GBM D’Agostino p-value': round(float(gbm_p), 4),
+                        # 'Heston Kurtosis': round(float(heston_kurt), 4),
+                        # 'Heston Skewness': round(float(heston_skew), 4),
+                        # # 'Heston D’Agostino Stat': round(float(heston_stat), 8),
+                        # 'Heston D’Agostino p-value': round(float(heston_p), 4),
+                        # 'Kou Kurtosis': round(float(kou_kurt), 4),
+                        # 'Kou Skewness': round(float(kou_skew), 4),
+                        # # 'Kou D’Agostino Stat': round(float(kou_stat), 8),
+                        # 'Kou D’Agostino p-value': round(float(kou_p), 4),
+                        # 'Moneyness Divergence': moneyness_divergence,
+                    })
 
     results_df = pd.DataFrame(results)
     results_df.to_csv('stylized_facts_results.csv', index=False)
@@ -392,7 +400,7 @@ def check_smile():
 
 def test_smile():
     ticker = "VALE3"
-    moneynesses = [0.15, 0.5]
+    moneynesses = [0.15, 0.6]
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
     # for database in ['2021-04-20', '2022-04-18']:
         n_cols = len(moneynesses)

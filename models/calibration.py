@@ -199,10 +199,11 @@ def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5, moneyn
     return round(sqr_err, 4)
 
 
-def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['heston', 'kou'] = 'kou', moneyness_spread: float = 0.15):
+def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['heston', 'kou'] = 'kou', maturity: str = None, moneyness_spread: float = 0.15):
 
     surface_market = vol_surface(asset_ticker, database, 'market', moneyness_divergence=moneyness_spread)
-    maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+    if maturity is None:
+        maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
     surface_model = vol_surface(asset_ticker, database, model, moneyness_divergence=moneyness_spread)
     surface_model = surface_model[surface_model['Maturity'] == maturity].sort_values(by='Strike')
     surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
@@ -217,7 +218,7 @@ def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['hes
     
     sqr_err = (1/len(vol_imp_market)) * np.sum((vol_imp_market - vol_imp_model) ** 2)
     print(f'MSE {model.capitalize()} model {model} implied vol on {database}: {sqr_err}')
-    return round(sqr_err, 4)
+    return round(sqr_err, 6)
 
 def calibrate_kou_model(asset_ticker: str, database: str = "2020-09-10", _ndays = 5, moneyness_spread: float = 0.15):
 
@@ -284,18 +285,20 @@ def validate_black_scholes_model_hist_vol(asset_ticker: str, database: str = "20
 def results_to_csv():
     results = []
     _ndays=5
-    for ticker in ['PETR4', 'VALE3', 'BOVA11']: 
+    for ticker in ['PETR4', 'VALE3']: 
     # for ticker in ['VALE3']:
         # for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
         for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
             for moneyness_spread in [0.15, 0.6]:
             # for moneyness_spread in [0.15, 0.6]:
-                sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread) 
-                sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
                 sqr_bs_hist_vol = validate_black_scholes_model_hist_vol(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
                 sqr_bs_imp_vol = validate_black_scholes_model_imp_vol(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
-                sqr_model_heston_imp_vol = validate_model_imp_vol(ticker, database, model='heston', moneyness_spread=moneyness_spread)
-                sqr_model_kou_imp_vol = validate_model_imp_vol(ticker, database, model='kou', moneyness_spread=moneyness_spread)
+                sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread) 
+                sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
+                surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_spread)
+                maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+                sqr_model_heston_imp_vol = validate_model_imp_vol(ticker, database, model='heston', maturity=maturity, moneyness_spread=moneyness_spread)
+                sqr_model_kou_imp_vol = validate_model_imp_vol(ticker, database, model='kou', maturity=maturity, moneyness_spread=moneyness_spread)
                 results.append({
                     'ticker': ticker,
                     'database': datetime.strptime(database, '%Y-%m-%d').strftime('%d/%m/%Y'),
@@ -317,11 +320,11 @@ if __name__ == "__main__":
     # database = '2020-10-16'
     # ticker = "PETR4"
     # ticker = "BOVA11"
-    # results_to_csv()
+    results_to_csv()
     # data = get_option_data(ticker, '2020-05-15', '2020-05-22', moneyness_divergence=0.6)
     # print(data)
     # print(len(data))
-    # raise Exception
+    raise Exception
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
