@@ -338,7 +338,7 @@ if __name__ == "__main__":
     # database = '2020-10-16'
     # ticker = "PETR4"
     # ticker = "BOVA11"
-    # results_to_csv()
+    results_to_csv()
     parameters_to_csv()
     # data = get_option_data(ticker, '2020-05-15', '2020-05-22', moneyness_divergence=0.6)
     # print(data)
@@ -359,7 +359,7 @@ if __name__ == "__main__":
                 # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
                 measure(lambda: calibrate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
                 # validate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread)
-                measure(lambda: calibrate_kou_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
+                # measure(lambda: calibrate_kou_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
                 # validate_kou_model(ticker, database, _ndays=5)
             
                 # validate_model_imp_vol(ticker, '2020-07-13', model='kou')

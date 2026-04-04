@@ -453,8 +453,8 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    test_returns()
-    # save_returns_metrics()
+    # test_returns()
+    save_returns_metrics()
     # test_vol()
     # test_smile()
     # check_smile()
