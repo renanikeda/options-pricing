@@ -157,7 +157,8 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
 
     def feller_constraint(x):
         """Retorna valor >= 0 quando a condição é satisfeita."""
-        kappa, theta, sigma = x[1], x[2], x[3]
+        # kappa, theta, sigma = x[1], x[2], x[3]
+        kappa, theta, sigma = x[0], x[1], x[2]
         return 2 * kappa * theta - sigma**2 - 0.01
 
     constraints =  {'type': 'ineq', 'fun': feller_constraint}
@@ -302,17 +303,34 @@ def results_to_csv():
                 results.append({
                     'ticker': ticker,
                     'database': datetime.strptime(database, '%Y-%m-%d').strftime('%d/%m/%Y'),
-                    'sqr_bs_hist_vol': sqr_bs_hist_vol,
-                    'sqr_bs_imp_vol': sqr_bs_imp_vol,
-                    'sqr_model_heston': sqr_model_heston,
-                    'sqr_model_kou': sqr_model_kou,
-                    'sqr_model_heston_imp_vol': sqr_model_heston_imp_vol,
-                    'sqr_model_kou_imp_vol': sqr_model_kou_imp_vol,
+                    'sqr_bs_hist_vol': format(sqr_bs_hist_vol, '.4f'),
+                    'sqr_bs_imp_vol': format(sqr_bs_imp_vol, '.4f'),
+                    'sqr_model_heston': format(sqr_model_heston, '.4f'),
+                    'sqr_model_kou': format(sqr_model_kou, '.4f'),
+                    'sqr_model_heston_imp_vol': format(sqr_model_heston_imp_vol, '.4f'),
+                    'sqr_model_kou_imp_vol': format(sqr_model_kou_imp_vol, '.4f'),
                     'moneyness': f'{moneyness_spread*100}%',
                 })
     df_results = pd.DataFrame(results)
     df_results.to_csv('model_validation_results.csv', index=False)
             
+def parameters_to_csv():
+    results = {}
+    for model in ['heston', 'kou']:
+        results[model] = []
+        for ticker in ['PETR4', 'VALE3']: 
+            for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
+                for moneyness_spread in [0.15, 0.6]:
+                    params = load_params(model, database, ticker, params_file=f'calibrated_params {moneyness_spread*100}%.json')
+                    params = {key: format(value, '.4f') for key, value in params.items()}
+                    results[model].append({
+                        'ticker': ticker,
+                        'database': datetime.strptime(database, '%Y-%m-%d').strftime('%d/%m/%Y'),
+                        **params,
+                        'moneyness': f'{moneyness_spread*100}%',
+                    })
+        df_results = pd.DataFrame(results[model])
+        df_results.to_csv(f'model_parameters_{model}.csv', index=False)
 
 if __name__ == "__main__":
     # database = '2023-11-01'
@@ -320,7 +338,8 @@ if __name__ == "__main__":
     # database = '2020-10-16'
     # ticker = "PETR4"
     # ticker = "BOVA11"
-    results_to_csv()
+    # results_to_csv()
+    parameters_to_csv()
     # data = get_option_data(ticker, '2020-05-15', '2020-05-22', moneyness_divergence=0.6)
     # print(data)
     # print(len(data))

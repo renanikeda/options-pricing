@@ -206,18 +206,17 @@ def plot_asset_prices(asset_ticker: str, database: str, _ndays = 10):
 
 def test_returns():
     S0=100
-    r=0.1
     sigma=0.5
     M=100
     dt=0.001
     ndays = 252
     daily_steps = int(1/dt)
-    database = '2020-07-13'
-    # database = '2022-04-18'
+    # database = '2020-07-13'
+    database = '2021-04-20'
     # database = '2025-06-10'
     ticker = 'PETR4'
     moneyness_divergence = 0.6
-    
+    r = get_selic(database)/100
     # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
     data_start =  nworkdays(database, 2)
     data_end = nworkdays(data_start, ndays)
@@ -228,54 +227,56 @@ def test_returns():
     S = S['Asset Price'].values
     S = np.diff(np.log(S), axis=0)
     S = S.flatten()
-    print(f'Curtose Retorno Mercado database {ticker}', round(kurtosis(S, axis=0, bias=False, fisher=False), 2))
-    print(f'Assimetria Retorno Mercado database {ticker}', round(skew(S, axis=0, bias=False), 2))
-    stat, p = shapiro(S)
-    print(f'Shapiro-Wilk Mercado database {ticker}: Stat={stat:.4f}, p={p:.4e}')
+    # print(f'Curtose Retorno Mercado database {ticker}', round(kurtosis(S, axis=0, bias=False, fisher=False), 2))
+    # print(f'Assimetria Retorno Mercado database {ticker}', round(skew(S, axis=0, bias=False), 2))
+    # stat, p = shapiro(S)
+    # print(f'Shapiro-Wilk Mercado database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(S)
 
     _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
     W = W[::daily_steps, :]
     W = np.diff(np.log(W), axis=0)
+
+    mu=np.mean(W)
     # W = W.flatten()
-    print(f'Curtose Retorno MB database {ticker}', np.mean(np.round(kurtosis(W, axis=0, bias=False, fisher=False), 2)))
-    print(f'Assimetria Retorno MB database {ticker}', np.mean(np.round(skew(W, axis=0, bias=False), 2)))
+    # print(f'Curtose Retorno MB database {ticker}', np.mean(np.round(kurtosis(W, axis=0, bias=False, fisher=False), 2)))
+    # print(f'Assimetria Retorno MB database {ticker}', np.mean(np.round(skew(W, axis=0, bias=False), 2)))
     # stat, p = shapiro(W[:,0].flatten())
     # print(f'Shapiro-Wilk MB (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W[:,0].flatten())
 
-    plot_n_returns([S, W.flatten()], ['Retorno Mercado', 'Retorno MBG'], size=2)
+    # plot_n_returns([S, W.flatten()], [f'Retorno Mercado {ticker}', f'Retorno MBG {ticker}'], size=2)
+    plot_n_returns([S, W[:,0].flatten()], [f'Retorno Mercado {ticker}', f'Retorno MBG {ticker}'], size=2)
 
     heston_params = load_params('heston', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
     print(heston_params)
-    _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=r, M=M, **heston_params)
+    _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=mu, M=M, **heston_params)
     W_h = W_h[::daily_steps, :]
     W_h = np.diff(np.log(W_h), axis=0)
     # W_h = W_h.flatten()
-    print(f'Curtose Retorno Heston database {ticker}', np.mean(np.round(kurtosis(W_h, axis=0, bias=False, fisher=False), 2)))
-    print(f'Assimetria Retorno Heston database {ticker}', np.mean(np.round(skew(W_h, axis=0, bias=False), 2)))
+    # print(f'Curtose Retorno Heston database {ticker}', np.mean(np.round(kurtosis(W_h, axis=0, bias=False, fisher=False), 2)))
+    # print(f'Assimetria Retorno Heston database {ticker}', np.mean(np.round(skew(W_h, axis=0, bias=False), 2)))
     # stat, p = shapiro(W_h[:,0].flatten())
     # print(f'Shapiro-Wilk Heston (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W_h[:,0].flatten())
 
     kou_params = load_params('kou', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
     print(kou_params)
-    t, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=r, M=M, **kou_params)
+    t, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=mu, M=M, **kou_params)
     W_k = W_k[::daily_steps, :]
     W_k = np.diff(np.log(W_k), axis=0)
     # W_k = W_k.flatten()
     # plot_returns(W_k, bins = int(50 * tau * 10))
-    print(f'Curtose Retorno Kou database {ticker}', np.mean(np.round(kurtosis(W_k, axis=0, bias=False, fisher=False), 2)))
-    print(f'Assimetria Retorno Kou database {ticker}', np.mean(np.round(skew(W_k, axis=0, bias=False), 2)))
+    # print(f'Curtose Retorno Kou database {ticker}', np.mean(np.round(kurtosis(W_k, axis=0, bias=False, fisher=False), 2)))
+    # print(f'Assimetria Retorno Kou database {ticker}', np.mean(np.round(skew(W_k, axis=0, bias=False), 2)))
     # stat, p = shapiro(W_k[:,0].flatten())
     # print(f'Shapiro-Wilk Kou (path 0) database {ticker}: Stat={stat:.4f}, p={p:.4e}')
     # plot_returns(W_k[:,0].flatten())
-    plot_n_returns([W_h.flatten(), W_k.flatten()], ['Retorno Heston', 'Retorno Kou'], size=2)
+    # plot_n_returns([W_h.flatten(), W_k.flatten()], ['Retorno Heston', 'Retorno Kou'], size=2)
+    plot_n_returns([W_h[:,0].flatten(), W_k[:,0].flatten()], [f'Retorno Heston {ticker}', f'Retorno Kou {ticker}'], size=2)
 
 def save_returns_metrics():
     S0=100
-    r=0.1
-    sigma=0.5
     M=100
     dt=0.001
     ndays = 252
@@ -286,6 +287,7 @@ def save_returns_metrics():
     for ticker in ['PETR4', 'VALE3']:
         for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
             for moneyness_divergence in [0.15, 0.6]:
+                r = get_selic(database)/100
                 # for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
                 data_start =  nworkdays(database, 2)
                 data_end = nworkdays(data_start, ndays if database != '2025-06-10' else 200)
@@ -296,6 +298,8 @@ def save_returns_metrics():
                 S = S['Asset Price'].values
                 S = np.diff(np.log(S), axis=0)
                 S = S.flatten()
+                mu = np.mean(S)
+                sigma = np.std(S)
                 market_kurt = round(kurtosis(S, axis=0, bias=False, fisher=False), 8)
                 market_skew = round(skew(S, axis=0, bias=False), 8)
                 print(f'Curtose Retorno Mercado database {ticker}', market_kurt)
@@ -304,7 +308,7 @@ def save_returns_metrics():
                 market_stat, market_p = normaltest(S)
                 print(f'D’Agostino Test Mercado database {ticker}: Stat={market_stat:.4f}, p={market_p:.4e}')
 
-                _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=r, sigma=sigma, M=M)
+                _, W = geometric_brownian_motion(S0=S0, tau=ndays, dt=dt, r=mu, sigma=sigma, M=M)
                 W = W[::daily_steps, :]
                 W = np.diff(np.log(W), axis=0)
                 gbm_kurt = np.mean(np.round(kurtosis(W, axis=0, bias=False, fisher=False), 8))
@@ -318,7 +322,7 @@ def save_returns_metrics():
 
                 heston_params = load_params('heston', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
                 # print(heston_params)
-                _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=r, M=M, **heston_params)
+                _, W_h, _ = heston_model(S0=S0, tau=ndays, dt=dt, r=mu, M=M, **heston_params)
                 W_h = W_h[::daily_steps, :]
                 W_h = np.diff(np.log(W_h), axis=0)
                 heston_kurt= np.mean(np.round(kurtosis(W_h, axis=0, bias=False, fisher=False), 8))
@@ -331,7 +335,7 @@ def save_returns_metrics():
 
                 kou_params = load_params('kou', database, ticker, params_file=f'calibrated_params {moneyness_divergence*100}%.json')
                 # print(kou_params)
-                _, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=r, M=M, **kou_params)
+                _, W_k = kou_process(S0=S0, tau=ndays, dt=dt, r=mu, M=M, **kou_params)
                 W_k = W_k[::daily_steps, :]
                 W_k = np.diff(np.log(W_k), axis=0)
                 kou_kurt = np.mean(np.round(kurtosis(W_k, axis=0, bias=False, fisher=False), 8))
@@ -347,10 +351,10 @@ def save_returns_metrics():
                         'Ticker': ticker,
                         'Database': datetime.strptime(database, '%Y-%m-%d').strftime('%d/%m/%Y'),
                         'Medida': medida,
-                        'Mercado': round(float(market_kurt) if medida == 'Curtose' else market_skew if medida == 'Assimetria' else market_p, 4),
-                        'Black-Scholes': round(float(gbm_kurt) if medida == 'Curtose' else gbm_skew if medida == 'Assimetria' else gbm_p, 4),
-                        'Heston': round(float(heston_kurt) if medida == 'Curtose' else heston_skew if medida == 'Assimetria' else heston_p, 4),
-                        'Kou': round(float(kou_kurt) if medida == 'Curtose' else kou_skew if medida == 'Assimetria' else kou_p, 4),
+                        'Mercado': format(float(market_kurt) if medida == 'Curtose' else market_skew if medida == 'Assimetria' else market_p, '.4f'),
+                        'Black-Scholes': format(float(gbm_kurt) if medida == 'Curtose' else gbm_skew if medida == 'Assimetria' else gbm_p, '.4f'),
+                        'Heston': format(float(heston_kurt) if medida == 'Curtose' else heston_skew if medida == 'Assimetria' else heston_p, '.4f'),
+                        'Kou': format(float(kou_kurt) if medida == 'Curtose' else kou_skew if medida == 'Assimetria' else kou_p, '.4f'),
                         'Moneyness Divergence': moneyness_divergence,
 
                         # 'Market Kurtosis': round(float(market_kurt), 4),
@@ -449,8 +453,8 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    # test_returns()
-    save_returns_metrics()
+    test_returns()
+    # save_returns_metrics()
     # test_vol()
     # test_smile()
     # check_smile()
