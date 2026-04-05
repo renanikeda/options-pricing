@@ -148,7 +148,7 @@ def validate_heston_model(asset_ticker: str, database: str, _ndays: int = 5, mon
 
 def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5, moneyness_spread: float = 0.15):
     params = {
-        "kappa": {"x0": 2.5, "limits": [1e-3,20]},
+        "kappa": {"x0": 2.5, "limits": [1e-3,10]},
         "theta": {"x0": 0.1, "limits": [1e-3,1]},
         "sigma": {"x0": 0.1, "limits": [1e-3,2.5]},
         "rho": {"x0": -0.4, "limits": [-0.95,0.5]},
@@ -209,7 +209,6 @@ def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['hes
     surface_model = vol_surface(asset_ticker, database, model, moneyness_divergence=moneyness_spread)
     surface_model = surface_model[surface_model['Maturity'] == maturity].sort_values(by='Strike')
     surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
-    
     vol_imp_market = surface_market['Implied Volatility'].values
     vol_imp_model = surface_model['Implied Volatility'].values
 
@@ -217,7 +216,10 @@ def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['hes
     valid_mask = ~np.isnan(vol_imp_market)
     vol_imp_market = vol_imp_market[valid_mask]
     vol_imp_model = vol_imp_model[valid_mask]
-    
+
+    valid_mask_model = ~np.isnan(vol_imp_model)
+    vol_imp_market = vol_imp_market[valid_mask_model]
+    vol_imp_model = vol_imp_model[valid_mask_model]
     sqr_err = (1/len(vol_imp_market)) * np.sum((vol_imp_market - vol_imp_model) ** 2)
     print(f'MSE {model.capitalize()} model {model} implied vol on {database}: {sqr_err}')
     return round(sqr_err, 6)
@@ -342,6 +344,7 @@ if __name__ == "__main__":
     # results_to_csv()
     # parameters_to_csv()
     # data = get_option_data(ticker, '2020-05-15', '2020-05-22', moneyness_divergence=0.6)
+    # print(validate_model_imp_vol('PETR4', '2023-11-01', model='kou', moneyness_spread=0.6))
     # print(data)
     # print(len(data))
     # raise Exception
