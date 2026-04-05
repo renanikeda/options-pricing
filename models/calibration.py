@@ -201,16 +201,20 @@ def validate_kou_model(asset_ticker: str, database: str, _ndays: int = 5, moneyn
     return round(sqr_err, 4)
 
 
-def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['heston', 'kou'] = 'kou', maturity: str = None, moneyness_spread: float = 0.15):
+def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['heston', 'kou', 'black-scholes'] = 'kou', maturity: str = None, moneyness_spread: float = 0.15):
 
     surface_market = vol_surface(asset_ticker, database, 'market', moneyness_divergence=moneyness_spread)
     if maturity is None:
         maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
-    surface_model = vol_surface(asset_ticker, database, model, moneyness_divergence=moneyness_spread)
-    surface_model = surface_model[surface_model['Maturity'] == maturity].sort_values(by='Strike')
     surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
     vol_imp_market = surface_market['Implied Volatility'].values
-    vol_imp_model = surface_model['Implied Volatility'].values
+
+    if model == 'black-scholes':
+        vol_imp_model = estimate_sigma_hist(asset_ticker, database, _ndays=10).values.flatten()[-1] * np.ones_like(vol_imp_market)
+    else:
+        surface_model = vol_surface(asset_ticker, database, model, moneyness_divergence=moneyness_spread)
+        surface_model = surface_model[surface_model['Maturity'] == maturity].sort_values(by='Strike')
+        vol_imp_model = surface_model['Implied Volatility'].values
 
     #Mask filtering nan
     valid_mask = ~np.isnan(vol_imp_market)
@@ -301,6 +305,7 @@ def results_to_csv():
                 sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
                 surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_spread)
                 maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+                sqr_model_bs_imp_vol = validate_model_imp_vol(ticker, database, model='black-scholes', maturity=maturity, moneyness_spread=moneyness_spread)
                 sqr_model_heston_imp_vol = validate_model_imp_vol(ticker, database, model='heston', maturity=maturity, moneyness_spread=moneyness_spread)
                 sqr_model_kou_imp_vol = validate_model_imp_vol(ticker, database, model='kou', maturity=maturity, moneyness_spread=moneyness_spread)
                 results.append({
@@ -310,6 +315,7 @@ def results_to_csv():
                     'sqr_bs_imp_vol': format(sqr_bs_imp_vol, '.4f'),
                     'sqr_model_heston': format(sqr_model_heston, '.4f'),
                     'sqr_model_kou': format(sqr_model_kou, '.4f'),
+                    'sqr_model_bs_imp_vol': format(sqr_model_bs_imp_vol, '.6f'),
                     'sqr_model_heston_imp_vol': format(sqr_model_heston_imp_vol, '.6f'),
                     'sqr_model_kou_imp_vol': format(sqr_model_kou_imp_vol, '.6f'),
                     'moneyness': f'{moneyness_spread*100}%',
@@ -341,13 +347,13 @@ if __name__ == "__main__":
     # database = '2020-10-16'
     # ticker = "PETR4"
     # ticker = "BOVA11"
-    # results_to_csv()
+    results_to_csv()
     # parameters_to_csv()
     # data = get_option_data(ticker, '2020-05-15', '2020-05-22', moneyness_divergence=0.6)
     # print(validate_model_imp_vol('PETR4', '2023-11-01', model='kou', moneyness_spread=0.6))
     # print(data)
     # print(len(data))
-    # raise Exception
+    raise Exception
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
