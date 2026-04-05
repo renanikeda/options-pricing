@@ -403,7 +403,7 @@ def check_smile():
     plt.show()
 
 def test_smile():
-    ticker = "PETR4"
+    ticker = "VALE3"
     moneynesses = [0.15, 0.6]
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
     # for database in ['2021-04-20', '2022-04-18']:
