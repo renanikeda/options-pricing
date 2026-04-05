@@ -408,7 +408,7 @@ def test_smile():
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
     # for database in ['2021-04-20', '2022-04-18']:
         n_cols = len(moneynesses)
-        fig, axs = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5), squeeze=False)
+        fig, axs = plt.subplots(1, n_cols, figsize=(6 * n_cols, 5), squeeze=False)
         axs = axs.flatten()
         fig.suptitle(f'Sorriso de volatilidade Data Base {database} para {ticker}')
         maturity = None
@@ -424,7 +424,13 @@ def test_smile():
             surface_kou = vol_surface(ticker, database, 'kou', moneyness_divergence=moneyness_divergence)
             surface_kou = surface_kou[surface_kou['Maturity'] == maturity].sort_values(by='Strike')
             vol_hist = estimate_sigma_hist(ticker, database, _ndays=10).values.flatten()[-1]
-            
+            valid_mask = ~np.isnan(surface_market['Implied Volatility']) & ~np.isnan(surface_heston['Implied Volatility']) & ~np.isnan(surface_kou['Implied Volatility'])
+            surface_market = surface_market[valid_mask]
+            surface_heston = surface_heston[valid_mask]
+            surface_kou = surface_kou[valid_mask]
+            sqr_error_heston = (1/len(surface_market['Implied Volatility'])) * (1/len(surface_market['Implied Volatility'] )) * np.mean((surface_market['Implied Volatility'] - surface_heston['Implied Volatility']) ** 2)
+            sqr_error_kou = np.mean((surface_market['Implied Volatility'] - surface_kou['Implied Volatility']) ** 2)
+            print(f'Squared Error Heston: {sqr_error_heston}, Squared Error Kou: {sqr_error_kou}')
             axs[index].scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market', s=10)
             axs[index].plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston')
             axs[index].plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou')
@@ -454,8 +460,8 @@ def test_asset_prices():
     
 if __name__ == "__main__":
     # test_returns()
-    save_returns_metrics()
+    # save_returns_metrics()
     # test_vol()
-    # test_smile()
+    test_smile()
     # check_smile()
     # test_asset_prices()

@@ -305,5 +305,15 @@ def get_selic(date: str, max_retries = 3) -> float:
             raise RuntimeError(f"Failed to retrieve SELIC rate for date {date} after multiple attempts.")
 
 
+def get_min_days(ticker, database: str, moneyness_divergence: float= 0.6, min_len_data: int = 225, start_ndays: int = 5, max_ndays: int = 10):
+    data_len = 0
+    _ndays = start_ndays - 1
+    while data_len < min_len_data and _ndays < max_ndays:
+        _ndays += 1
+        data_ini = nworkdays(database, -1*_ndays)
+        options_full_data = get_option_data(ticker, data_ini, database, moneyness_divergence=moneyness_divergence)
+        data_len = len(options_full_data)
+    return _ndays
+
 if __name__ == "__main__":
     print(nworkdays('2025-01-10', 5))

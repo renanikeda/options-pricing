@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 from heston_model import heston_price
 from kou_jump_diffusion import kou_option_price
-from utils import diff_days, estimate_sigma_hist, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic
+from utils import diff_days, estimate_sigma_hist, nworkdays, measure, get_option_data, save_params, load_params, OptionType, get_selic, get_min_days
 from black_scholes import black_scholes, black_scholes_vega, implied_vol
 from typing import List, Dict, Callable, Literal
 import random
@@ -154,6 +154,8 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
         "rho": {"x0": -0.4, "limits": [-0.95,0.5]},
         # "v0": {"x0": 0.05, "limits": [1e-3,1]},
     }
+    initial_params = [param["x0"] for key, param in params.items()]
+    limit_params = [param["limits"] for key, param in params.items()]
 
     def feller_constraint(x):
         """Retorna valor >= 0 quando a condição é satisfeita."""
@@ -162,13 +164,11 @@ def calibrate_heston_model(ticker: str, database: str = "2020-09-10", _ndays = 5
         return 2 * kappa * theta - sigma**2 - 0.01
 
     constraints =  {'type': 'ineq', 'fun': feller_constraint}
-
+    
     data_ini = nworkdays(database, -1*_ndays)
-    print('Dates: ', data_ini, database)
-    initial_params = [param["x0"] for key, param in params.items()]
-    limit_params = [param["limits"] for key, param in params.items()]
-
+    print('Dates: ', data_ini, database, f'({_ndays})')
     options_full_data = get_option_data(ticker, data_ini, database, moneyness_divergence=moneyness_spread)
+
     print(f'Moneyness spread: {moneyness_spread*100}%, Options data length: {len(options_full_data)}')
     r = get_selic(options_full_data.iloc[0]['TradeDate']) / 100
     v0 = estimate_v0(options_full_data, options_full_data.iloc[0]['TradeDate'], r=r)
@@ -355,8 +355,9 @@ if __name__ == "__main__":
         # for moneyness_spread in [0.15, 0.2, 0.5, 0.6, 0.7]:
         for moneyness_spread in [0.15, 0.6]:
             # for ticker in ['PETR4', 'VALE3', 'BOVA11']:
-            for ticker in ['PETR4', 'VALE3']:
+            for ticker in ['PETR4','VALE3']:
             # for ticker in ['BOVA11']:
+                # _ndays = get_min_days(ticker, database, 0.15)
                 # data = get_option_data(ticker, nworkdays(database, -5), database, moneyness_divergence=moneyness_spread)
                 # print(database, ticker, len(data), moneyness_spread)
                 # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
