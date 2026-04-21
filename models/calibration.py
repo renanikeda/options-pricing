@@ -217,13 +217,10 @@ def validate_model_imp_vol(asset_ticker: str, database: str, model: Literal['hes
         vol_imp_model = surface_model['Implied Volatility'].values
 
     #Mask filtering nan
-    valid_mask = ~np.isnan(vol_imp_market)
+    valid_mask = ~np.isnan(surface_market['Implied Volatility']) & ~np.isnan(vol_imp_model['Implied Volatility'])
     vol_imp_market = vol_imp_market[valid_mask]
     vol_imp_model = vol_imp_model[valid_mask]
 
-    valid_mask_model = ~np.isnan(vol_imp_model)
-    vol_imp_market = vol_imp_market[valid_mask_model]
-    vol_imp_model = vol_imp_model[valid_mask_model]
     sqr_err = (1/len(vol_imp_market)) * np.sum((vol_imp_market - vol_imp_model) ** 2)
     print(f'MSE {model.capitalize()} model {model} implied vol on {database}: {sqr_err}')
     return round(sqr_err, 6)
@@ -297,6 +294,7 @@ def results_to_csv():
     # for ticker in ['VALE3']:
         # for database in ['2020-07-13', '2022-04-18', '2025-06-10']:
         for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
+            maturity=None
             for moneyness_spread in [0.15, 0.6]:
             # for moneyness_spread in [0.15, 0.6]:
                 sqr_bs_hist_vol = validate_black_scholes_model_hist_vol(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
@@ -304,7 +302,7 @@ def results_to_csv():
                 sqr_model_heston = validate_heston_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread) 
                 sqr_model_kou = validate_kou_model(ticker, database, _ndays=_ndays, moneyness_spread=moneyness_spread)
                 surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_spread)
-                maturity = surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+                maturity = maturity or surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
                 sqr_model_bs_imp_vol = validate_model_imp_vol(ticker, database, model='black-scholes', maturity=maturity, moneyness_spread=moneyness_spread)
                 sqr_model_heston_imp_vol = validate_model_imp_vol(ticker, database, model='heston', maturity=maturity, moneyness_spread=moneyness_spread)
                 sqr_model_kou_imp_vol = validate_model_imp_vol(ticker, database, model='kou', maturity=maturity, moneyness_spread=moneyness_spread)

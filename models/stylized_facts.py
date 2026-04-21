@@ -211,9 +211,8 @@ def test_returns():
     dt=0.001
     ndays = 252
     daily_steps = int(1/dt)
-    # database = '2020-07-13'
-    database = '2021-04-20'
-    # database = '2025-06-10'
+    database = '2020-07-13'
+    ddatabase = '2021-04-20'
     ticker = 'PETR4'
     moneyness_divergence = 0.6
     r = get_selic(database)/100
@@ -403,7 +402,7 @@ def check_smile():
     plt.show()
 
 def test_smile():
-    ticker = "VALE3"
+    ticker = "PETR4"
     moneynesses = [0.15, 0.6]
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
     # for database in ['2021-04-20', '2022-04-18']:
@@ -414,10 +413,11 @@ def test_smile():
         maturity = None
         for (index, moneyness_divergence) in enumerate(moneynesses):
         # for moneyness_divergence in [0.2, 0.7]:
-            print(f"Database: {database}, Moneyness Divergence: {moneyness_divergence}")
             surface_market = vol_surface(ticker, database, 'market', moneyness_divergence=moneyness_divergence)
             # print(surface_black['Maturity'].value_counts().sort_values(ascending=False))
             maturity = maturity or surface_market['Maturity'].value_counts().sort_values(ascending=False).index[0]
+            print(f"Database: {database}, Moneyness Divergence: {moneyness_divergence}, Maturity: {maturity}")
+
             surface_market = surface_market[surface_market['Maturity'] == maturity].sort_values(by='Strike')
             surface_heston = vol_surface(ticker, database, 'heston', moneyness_divergence=moneyness_divergence)
             surface_heston = surface_heston[surface_heston['Maturity'] == maturity].sort_values(by='Strike')
@@ -428,9 +428,9 @@ def test_smile():
             surface_market = surface_market[valid_mask]
             surface_heston = surface_heston[valid_mask]
             surface_kou = surface_kou[valid_mask]
-            sqr_error_heston = (1/len(surface_market['Implied Volatility'])) * (1/len(surface_market['Implied Volatility'] )) * np.mean((surface_market['Implied Volatility'] - surface_heston['Implied Volatility']) ** 2)
-            sqr_error_kou = np.mean((surface_market['Implied Volatility'] - surface_kou['Implied Volatility']) ** 2)
-            print(f'Squared Error Heston: {sqr_error_heston}, Squared Error Kou: {sqr_error_kou}')
+            sqr_error_heston = (1/len(surface_market['Implied Volatility'])) * np.mean((surface_market['Implied Volatility'] - surface_heston['Implied Volatility']) ** 2)
+            sqr_error_kou = (1/len(surface_market['Implied Volatility'])) * np.mean((surface_market['Implied Volatility'] - surface_kou['Implied Volatility']) ** 2)
+            print(f'Squared Error Heston: {format(sqr_error_heston, ".6f")}, Squared Error Kou: {format(sqr_error_kou, ".6f")}')
             axs[index].scatter(surface_market['Strike'], surface_market['Implied Volatility'], color='darkolivegreen', label='Market', s=10)
             axs[index].plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston')
             axs[index].plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou')
@@ -459,9 +459,9 @@ def test_asset_prices():
         plot_asset_prices(asset_ticker, database, _ndays=30)
     
 if __name__ == "__main__":
-    # test_returns()
+    test_returns()
     # save_returns_metrics()
     # test_vol()
-    test_smile()
+    # test_smile()
     # check_smile()
     # test_asset_prices()
