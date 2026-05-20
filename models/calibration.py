@@ -345,13 +345,13 @@ if __name__ == "__main__":
     # database = '2020-10-16'
     # ticker = "PETR4"
     # ticker = "BOVA11"
-    results_to_csv()
+    # results_to_csv()
     # parameters_to_csv()
     # data = get_option_data(ticker, '2020-05-15', '2020-05-22', moneyness_divergence=0.6)
     # print(validate_model_imp_vol('PETR4', '2023-11-01', model='kou', moneyness_spread=0.6))
     # print(data)
     # print(len(data))
-    raise Exception
+    # raise Exception
 
     # get_option_data('PETR4', '2020-07-07', '2020-07-13', moneyness_divergence=0.7)
     for database in ['2020-07-13', '2021-04-20', '2022-04-18', '2023-11-01', '2025-01-30', '2025-06-10']:
@@ -362,13 +362,13 @@ if __name__ == "__main__":
             for ticker in ['PETR4','VALE3']:
             # for ticker in ['BOVA11']:
                 # _ndays = get_min_days(ticker, database, 0.15)
-                # data = get_option_data(ticker, nworkdays(database, -5), database, moneyness_divergence=moneyness_spread)
-                # print(database, ticker, len(data), moneyness_spread)
+                data = get_option_data(ticker, nworkdays(database, -5), database, moneyness_divergence=moneyness_spread)
+                print(f'{database}, {ticker}, {moneyness_spread}, {len(data)}, {data["TradeQty"].sum()}, {data["TradeAmount"].sum()}')
                 # validate_black_scholes_model_hist_vol(ticker, database, _ndays=5)
                 # validate_black_scholes_model_imp_vol(ticker, database, _ndays=5)
                 # measure(lambda: calibrate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
                 # validate_heston_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread)
-                measure(lambda: calibrate_kou_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
+                # measure(lambda: calibrate_kou_model(ticker, database, _ndays=5, moneyness_spread=moneyness_spread))
                 # validate_kou_model(ticker, database, _ndays=5)
             
                 # validate_model_imp_vol(ticker, '2020-07-13', model='kou')

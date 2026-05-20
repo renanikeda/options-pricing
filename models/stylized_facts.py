@@ -14,7 +14,12 @@ from kou_jump_diffusion import kou_option_price, kou_process
 from calibration import estimate_v0
 from utils import OptionType, ewma_volatility, get_option_data, get_asset_prices, get_selic, load_params, nworkdays, estimate_sigma_hist, OptionStyle
 from imp_vol import vol_surface
-from datetime import datetime
+from datetime import datetime, date
+
+import matplotlib.ticker as mticker
+from matplotlib.gridspec import GridSpec
+from scipy import stats
+import yfinance as yf
 
 def plot_returns(flat_returns: np.array, bins: int = 100) -> None:
     """
@@ -457,9 +462,178 @@ def test_asset_prices():
     asset_ticker = 'PETR4'
     for database in ['2021-04-20', '2023-11-01', '2025-01-30']:
         plot_asset_prices(asset_ticker, database, _ndays=30)
-    
+
+
+def test_ibovespa():
+    ticker = yf.Ticker("^BVSP")
+    df = ticker.history(period="1y")
+
+    log_returns = np.log(df["Close"] / df["Close"].shift(1)).dropna()
+
+    mu, sigma = log_returns.mean(), log_returns.std()
+    skew = stats.skew(log_returns)
+    kurt = stats.kurtosis(log_returns, fisher=False)
+    _, pvalue = stats.jarque_bera(log_returns)
+
+    x = np.linspace(log_returns.min(), log_returns.max(), 400)
+    gaussian = stats.norm.pdf(x, mu, sigma)
+
+    # --- layout ---
+    fig = plt.figure(figsize=(10, 6), facecolor="white")
+    gs = GridSpec(1, 1, figure=fig)
+    ax = fig.add_subplot(gs[0])
+    ax.set_facecolor("white")
+
+    # histogram
+    n, bins, patches = ax.hist(
+        log_returns,
+        bins=100,
+        density=True,
+        color="#213d5f",
+        alpha=0.65,
+        edgecolor="white",
+        linewidth=0.5,
+        zorder=2,
+        label="Log-retornos IBOVESPA",
+    )
+
+    # gaussian fit
+    ax.plot(x, gaussian, color="#c0392b", linewidth=2.2, zorder=3, label=f"Normal $\\mathcal{{N}}$({mu:.4f}, {sigma:.4f}²)")
+
+    # KDE
+    kde = stats.gaussian_kde(log_returns)
+    ax.plot(x, kde(x), color="#e67e22", linewidth=1.6, linestyle="--", zorder=4, label="KDE empírica")
+
+    # zero line
+    ax.axvline(0, color="#555555", linewidth=0.8, alpha=0.4, linestyle=":", zorder=1)
+
+    # stats box
+    stats_text = (
+        f"$\\mu$ = {mu:.5f}\n"
+        f"$\\sigma$ = {sigma:.5f}\n"
+        f"Assimetria = {skew:.3f}\n"
+        f"Curtose = {kurt:.3f}\n"
+    )
+    ax.text(
+        0.975, 0.96,
+        stats_text,
+        transform=ax.transAxes,
+        ha="right", va="top",
+        fontsize=9,
+        color="#222222",
+        linespacing=1.7,
+        bbox=dict(boxstyle="round,pad=0.5", facecolor="white", edgecolor="#4c72b0", alpha=0.9),
+    )
+
+    # labels & title
+    ax.set_title("Distribuição dos Log-Retornos Diários — IBOVESPA (1 ano)", color="#111111", fontsize=13, pad=14)
+    ax.set_xlabel("Log-retorno", color="#333333", fontsize=11)
+    ax.set_ylabel("Densidade", color="#333333", fontsize=11)
+
+    ax.grid(axis="y", color="#dddddd", linewidth=0.7, linestyle="-", zorder=0)
+    ax.grid(axis="x", color="#eeeeee", linewidth=0.5, linestyle="-", zorder=0)
+    ax.set_axisbelow(True)
+
+    ax.tick_params(colors="#555555", labelsize=9)
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#cccccc")
+
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.2%}"))
+
+    leg = ax.legend(frameon=True, framealpha=0.9, facecolor="white", edgecolor="#4c72b0", labelcolor="#111111", fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_ibov_smile():
+    # EWZ: iShares MSCI Brazil ETF — proxy do Ibovespa com opções líquidas na NYSE
+    ticker = yf.Ticker("EWZ")
+    spot = ticker.history(period="1d")["Close"].iloc[-1]
+
+    expirations = ticker.options
+    if not expirations:
+        raise ValueError("Sem dados de opções disponíveis para EWZ")
+
+    def _filter(df, otm_mask):
+        df = df[df["ask"] > 0].copy()
+        df = df[df["impliedVolatility"] > 0]
+        df = df[df["volume"] >= 2]
+        df = df[(df["ask"] - df["bid"]) / df["ask"] <= 1.0]
+        df = df[otm_mask(df)]
+        df["moneyness"] = np.log(df["strike"] / spot)
+        return df
+
+    # seleciona o vencimento com maior volume total
+    best_exp, best_vol = None, -1
+    for exp in expirations:
+        chain = ticker.option_chain(exp)
+        vol = chain.calls["volume"].fillna(0).sum() + chain.puts["volume"].fillna(0).sum()
+        if vol > best_vol:
+            best_vol, best_exp = vol, exp
+
+    chain = ticker.option_chain(best_exp)
+    puts  = _filter(chain.puts,  lambda d: d["strike"] < spot)
+    calls = _filter(chain.calls, lambda d: d["strike"] > spot)
+
+    smile = pd.concat([
+        puts[["moneyness", "impliedVolatility"]].rename(columns={"impliedVolatility": "iv"}),
+        calls[["moneyness", "impliedVolatility"]].rename(columns={"impliedVolatility": "iv"}),
+    ]).sort_values("moneyness").dropna()
+
+    smile = smile[(smile["moneyness"] >= -0.35) & (smile["moneyness"] <= 0.35)]
+
+    if len(smile) < 4:
+        raise ValueError(f"Pontos insuficientes para o vencimento {best_exp} após filtros.")
+
+    dte = (pd.to_datetime(best_exp).date() - date.today()).days
+
+    fig = plt.figure(figsize=(10, 6), facecolor="white")
+    ax = fig.add_subplot(GridSpec(1, 1, figure=fig)[0])
+    ax.set_facecolor("white")
+
+    # pontos brutos — referência visual
+    ax.scatter(smile["moneyness"], smile["iv"],
+               s=30, color="#213d5f", alpha=0.45, zorder=3, label="IV observada")
+
+    # ajuste polinomial grau 2 — parábola sem ondulações
+    coeffs = np.polyfit(smile["moneyness"], smile["iv"], deg=2)
+    x_dense = np.linspace(smile["moneyness"].min(), smile["moneyness"].max(), 300)
+    ax.plot(x_dense, np.polyval(coeffs, x_dense),
+            linewidth=2.4, color="#213d5f", linestyle="--",
+            label="Ajuste polinomial (grau 2)", zorder=4)
+
+    ax.axvline(0, color="#888888", linewidth=1.0, alpha=0.5, linestyle="--", zorder=2)
+
+    ymin, ymax = ax.get_ylim()
+    ax.text(0.002, ymin + (ymax - ymin) * 0.02,
+            "ATM", fontsize=8, color="#888888", va="bottom", zorder=5)
+
+    ax.grid(axis="y", color="#dddddd", linewidth=0.7, linestyle="-", zorder=0)
+    ax.grid(axis="x", color="#eeeeee", linewidth=0.5, linestyle="-", zorder=0)
+    ax.set_axisbelow(True)
+
+    ax.set_title(f"Sorriso de Volatilidade EWZ / Ibovespa - Venc. {best_exp} ", color="#111111", fontsize=13, pad=14)
+    ax.set_xlabel("Log-moneyness  $\\ln(K/S)$", color="#333333", fontsize=11)
+    ax.set_ylabel("Volatilidade Implícita", color="#333333", fontsize=11)
+
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0%}"))
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.1%}"))
+    ax.set_xlim(-0.37, 0.37)
+
+    ax.tick_params(colors="#555555", labelsize=9)
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#cccccc")
+
+    ax.legend(frameon=True, framealpha=0.9, facecolor="white",
+              edgecolor="#4c72b0", labelcolor="#111111", fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
+
 if __name__ == "__main__":
-    test_returns()
+    # test_ibovespa()
+    plot_ibov_smile()
+    # test_returns()
     # save_returns_metrics()
     # test_vol()
     # test_smile()
