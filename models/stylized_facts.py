@@ -414,7 +414,7 @@ def test_smile():
         n_cols = len(moneynesses)
         fig, axs = plt.subplots(1, n_cols, figsize=(6 * n_cols, 5), squeeze=False)
         axs = axs.flatten()
-        fig.suptitle(f'Sorriso de volatilidade Data Base {database} para {ticker}')
+        fig.suptitle(f'Sorriso de volatilidade Data Base {database} para {ticker}', fontsize=14)
         maturity = None
         for (index, moneyness_divergence) in enumerate(moneynesses):
         # for moneyness_divergence in [0.2, 0.7]:
@@ -440,11 +440,12 @@ def test_smile():
             axs[index].plot(surface_heston['Strike'], surface_heston['Implied Volatility'], color='indigo', linestyle='dashed', label='Heston')
             axs[index].plot(surface_kou['Strike'], surface_kou['Implied Volatility'], color='darkgoldenrod', linestyle='dashed', label='Kou')
             axs[index].axhline(y=vol_hist, color='teal', linestyle='dashed', label='BS Volatility')
-            axs[index].set_title(f'Moneyness [{round(1-moneyness_divergence, 2)}, {round(1+moneyness_divergence, 2)}], maturity {maturity}')
-            axs[index].set_xlabel('Preço de Exercício')
+            axs[index].set_title(f'Moneyness [{round(1-moneyness_divergence, 2)}, {round(1+moneyness_divergence, 2)}], maturity {maturity}', fontsize=14)
+            axs[index].set_xlabel('Preço de Exercício', fontsize=14)
             if index == 0:
-                axs[index].set_ylabel('Volatilidade Implícita')
-            axs[index].legend()
+                axs[index].set_ylabel('Volatilidade Implícita', fontsize=14)
+            axs[index].legend(fontsize=12)
+            axs[index].tick_params(axis='both', labelsize=11)
             axs[index].grid()
         
         plt.tight_layout()
@@ -526,21 +527,21 @@ def test_ibovespa():
     )
 
     # labels & title
-    ax.set_title("Distribuição dos Log-Retornos Diários — IBOVESPA (1 ano)", color="#111111", fontsize=13, pad=14)
-    ax.set_xlabel("Log-retorno", color="#333333", fontsize=11)
-    ax.set_ylabel("Densidade", color="#333333", fontsize=11)
+    ax.set_title("Distribuição dos Log-Retornos Diários — IBOVESPA (1 ano)", color="#111111", fontsize=16, pad=14)
+    ax.set_xlabel("Log-retorno", color="#333333", fontsize=13)
+    ax.set_ylabel("Densidade", color="#333333", fontsize=13)
 
     ax.grid(axis="y", color="#dddddd", linewidth=0.7, linestyle="-", zorder=0)
     ax.grid(axis="x", color="#eeeeee", linewidth=0.5, linestyle="-", zorder=0)
     ax.set_axisbelow(True)
 
-    ax.tick_params(colors="#555555", labelsize=9)
+    ax.tick_params(colors="#555555", labelsize=11)
     for spine in ax.spines.values():
         spine.set_edgecolor("#cccccc")
 
     ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.2%}"))
 
-    leg = ax.legend(frameon=True, framealpha=0.9, facecolor="white", edgecolor="#4c72b0", labelcolor="#111111", fontsize=9)
+    leg = ax.legend(frameon=True, framealpha=0.9, facecolor="white", edgecolor="#4c72b0", labelcolor="#111111", fontsize=11)
 
     plt.tight_layout()
     plt.show()
@@ -612,30 +613,173 @@ def plot_ibov_smile():
     ax.grid(axis="x", color="#eeeeee", linewidth=0.5, linestyle="-", zorder=0)
     ax.set_axisbelow(True)
 
-    ax.set_title(f"Sorriso de Volatilidade EWZ / Ibovespa - Venc. {best_exp} ", color="#111111", fontsize=13, pad=14)
-    ax.set_xlabel("Log-moneyness  $\\ln(K/S)$", color="#333333", fontsize=11)
-    ax.set_ylabel("Volatilidade Implícita", color="#333333", fontsize=11)
+    ax.set_title(f"Sorriso de Volatilidade EWZ / Ibovespa - Venc. {best_exp} ", color="#111111", fontsize=16, pad=14)
+    ax.set_xlabel("Log-moneyness  $\\ln(K/S)$", color="#333333", fontsize=13)
+    ax.set_ylabel("Volatilidade Implícita", color="#333333", fontsize=13)
 
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0%}"))
     ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.1%}"))
     ax.set_xlim(-0.37, 0.37)
 
-    ax.tick_params(colors="#555555", labelsize=9)
+    ax.tick_params(colors="#555555", labelsize=11)
     for spine in ax.spines.values():
         spine.set_edgecolor("#cccccc")
 
     ax.legend(frameon=True, framealpha=0.9, facecolor="white",
-              edgecolor="#4c72b0", labelcolor="#111111", fontsize=9)
+              edgecolor="#4c72b0", labelcolor="#111111", fontsize=11)
 
     plt.tight_layout()
     plt.show()
 
+def plot_ibov_svi(min_options: int = 5, min_moneyness_span: float = 0.5):
+    from scipy.optimize import minimize
+    from scipy.interpolate import RectBivariateSpline
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+    ticker = yf.Ticker("EWZ")
+    spot = ticker.history(period="1d")["Close"].iloc[-1]
+    expirations = ticker.options
+    if not expirations:
+        raise ValueError("Sem dados de opções disponíveis para EWZ")
+
+    def _filter(df, otm_mask):
+        df = df[df["ask"] > 0].copy()
+        df = df[df["impliedVolatility"] > 0]
+        df = df[df["volume"] >= 2]
+        df = df[(df["ask"] - df["bid"]) / df["ask"] <= 1.0]
+        df = df[otm_mask(df)]
+        df["moneyness"] = np.log(df["strike"] / spot)
+        return df
+
+    def svi_w(k, a, b, rho, m, sigma):
+        return a + b * (rho * (k - m) + np.sqrt((k - m) ** 2 + sigma ** 2))
+
+    def fit_svi(k, w_market):
+        def objective(params):
+            a, b, rho, m, sigma = params
+            w_fit = svi_w(k, a, b, rho, m, sigma)
+            return np.sum((w_fit - w_market) ** 2)
+
+        x0 = [np.mean(w_market), 0.1, -0.5, 0.0, 0.1]
+        bounds = [
+            (1e-6, None),
+            (1e-6, None),
+            (-0.999, 0.999),
+            (-1.0, 1.0),
+            (1e-6, None),
+        ]
+        result = minimize(objective, x0, bounds=bounds, method="L-BFGS-B")
+        return result.x
+
+    slices = []
+    for exp in expirations[:10]:
+        dte = (pd.to_datetime(exp).date() - date.today()).days
+        if dte < 5:
+            continue
+        tau = dte / 365.0
+        chain = ticker.option_chain(exp)
+        puts  = _filter(chain.puts,  lambda d: d["strike"] < spot)
+        calls = _filter(chain.calls, lambda d: d["strike"] > spot)
+        smile = pd.concat([
+            puts[["moneyness", "impliedVolatility"]],
+            calls[["moneyness", "impliedVolatility"]],
+        ]).sort_values("moneyness").dropna()
+        smile = smile[(smile["moneyness"] >= -0.35) & (smile["moneyness"] <= 0.35)]
+        moneyness_span = smile["moneyness"].max() - smile["moneyness"].min() if len(smile) > 1 else 0
+        if len(smile) < min_options or moneyness_span < min_moneyness_span:
+            continue
+        slices.append((tau, dte, exp, smile))
+
+    if len(slices) < 2:
+        raise ValueError("Pontos insuficientes para construir superfície.")
+
+    k_grid = np.linspace(-0.30, 0.30, 80)
+    tau_vals, dte_vals, iv_surface, raw_slices = [], [], [], []
+
+    for tau, dte, exp, smile in slices:
+        k = smile["moneyness"].values
+        iv = smile["impliedVolatility"].values
+        w_market = iv ** 2 * tau
+        try:
+            params = fit_svi(k, w_market)
+            w_fit = np.maximum(svi_w(k_grid, *params), 1e-8)
+            iv_fit = np.sqrt(w_fit / tau)
+            tau_vals.append(tau)
+            dte_vals.append(dte)
+            iv_surface.append(iv_fit)
+            raw_slices.append((dte, smile))
+        except Exception:
+            continue
+
+    if len(tau_vals) < 2:
+        raise ValueError("Ajuste SVI falhou para maturidades suficientes.")
+
+    IV_coarse = np.array(iv_surface)  # shape: (n_slices, 80)
+
+    # interpolação bicúbica: suaviza tanto no eixo DTE quanto no de moneyness
+    spline = RectBivariateSpline(dte_vals, k_grid, IV_coarse, kx=min(3, len(dte_vals) - 1), ky=3)
+
+    k_fine   = np.linspace(k_grid.min(), k_grid.max(), 150)
+    dte_fine = np.linspace(min(dte_vals), max(dte_vals), 80)
+
+    IV_fine = np.maximum(spline(dte_fine, k_fine), 0.0)
+    K, T = np.meshgrid(k_fine, dte_fine)
+    IV = IV_fine
+
+    fig = plt.figure(figsize=(12, 7), facecolor="white")
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_facecolor("white")
+
+    surf = ax.plot_surface(
+        K, T, IV,
+        cmap="Blues",
+        alpha=0.85,
+        linewidth=0.3,
+        antialiased=True,
+        edgecolor="#99aacc",
+    )
+
+    for dte, smile in raw_slices:
+        ax.scatter(
+            smile["moneyness"].values,
+            np.full(len(smile), dte),
+            smile["impliedVolatility"].values,
+            s=8, color="#213d5f", alpha=0.55, zorder=5,
+        )
+
+    cbar = fig.colorbar(surf, ax=ax, shrink=0.45, aspect=12, pad=0.1)
+    cbar.set_label("Volatilidade Implícita", color="#333333", fontsize=11)
+    cbar.ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0%}"))
+    cbar.ax.tick_params(labelsize=10, colors="#555555")
+
+    ax.set_title("Superfície de Volatilidade EWZ / Ibovespa — Modelo SVI", color="#111111", fontsize=16, pad=14)
+    ax.set_xlabel("Log-moneyness  $\\ln(K/S)$", color="#333333", fontsize=13, labelpad=10)
+    ax.set_ylabel("Dias para vencimento", color="#333333", fontsize=13, labelpad=10)
+    ax.set_zlabel("Vol. Implícita", color="#333333", fontsize=13, labelpad=6)
+
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.1%}"))
+    ax.zaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0%}"))
+
+    ax.tick_params(colors="#555555", labelsize=11)
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.set_edgecolor("#dddddd")
+    ax.yaxis.pane.set_edgecolor("#dddddd")
+    ax.zaxis.pane.set_edgecolor("#dddddd")
+    ax.grid(True, color="#eeeeee", linewidth=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     # test_ibovespa()
-    plot_ibov_smile()
+    # plot_ibov_smile()
+    # plot_ibov_svi()
     # test_returns()
     # save_returns_metrics()
     # test_vol()
-    # test_smile()
+    test_smile()
     # check_smile()
     # test_asset_prices()
